@@ -5,6 +5,18 @@ export const STANDARD_12 = [
   "qstart", "qend", "sstart", "send", "evalue", "bitscore",
 ];
 
+/** Every field name the parser understands, for building a manual column-mapping UI. */
+export const KNOWN_FIELDS = [
+  "qseqid", "sseqid", "pident", "length", "mismatch", "gapopen", "qstart", "qend", "sstart", "send",
+  "evalue", "bitscore", "qlen", "slen", "staxids", "sscinames", "scomnames", "sskingdoms",
+  "qcovs", "qcovhsp", "stitle", "qseq", "sseq",
+];
+
+/** Best-guess field name per column position, for prefilling a manual mapping UI. Empty string = skip. */
+export function guessColumns(colCount) {
+  return Array.from({ length: colCount }, (_, i) => STANDARD_12[i] || "");
+}
+
 const NUMERIC_FIELDS = new Set([
   "pident", "length", "mismatch", "gapopen", "qstart", "qend", "sstart", "send",
   "evalue", "bitscore", "qlen", "slen", "qcovs", "qcovhsp",

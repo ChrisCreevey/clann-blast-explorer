@@ -7,6 +7,7 @@ import path from "node:path";
 import { parse, ColumnMappingNeeded } from "../src/parse/index.js";
 import { parseFasta, matchFastaIds, toFastaText } from "../src/parse/fasta.js";
 import { classifyAccession, accessionLinkUrl } from "../src/parse/accession.js";
+import { guessColumns, STANDARD_12 } from "../src/parse/blast-tabular.js";
 import { defaultThresholds, passesThresholds, filterHits, computeQcov, classifyQuery } from "../src/analysis/filters.js";
 import { perQuerySummary, bestHits } from "../src/analysis/summary.js";
 import { taxonLabel } from "../src/render/taxonomy.js";
@@ -56,6 +57,37 @@ test("files with qseq/sseq columns set hasSequences", () => {
 
 test("malformed/ambiguous column count triggers mapping, not a crash", () => {
   assert.throws(() => parse(fixture("ambiguous.tsv"), { filename: "ambiguous.tsv" }), ColumnMappingNeeded);
+});
+
+test("ColumnMappingNeeded carries preview rows for the manual mapping UI", () => {
+  try {
+    parse(fixture("ambiguous.tsv"), { filename: "ambiguous.tsv" });
+    assert.fail("expected ColumnMappingNeeded");
+  } catch (err) {
+    assert.ok(err instanceof ColumnMappingNeeded);
+    assert.ok(err.previewRows.length > 0);
+    assert.deepEqual(err.previewRows[0], ["query1", "sbjct_A", "200", "3"]);
+  }
+});
+
+test("guessColumns: best-effort positional guess, blank past the standard 12", () => {
+  assert.deepEqual(guessColumns(12), STANDARD_12);
+  assert.deepEqual(guessColumns(3), ["qseqid", "sseqid", "pident"]);
+  assert.deepEqual(guessColumns(14).slice(12), ["", ""]);
+});
+
+test("manual column mapping recovers a file auto-detection can't handle", () => {
+  // 4 columns, no header, no "# Fields:" — same shape as ambiguous.tsv, but this
+  // time the caller supplies a manual mapping instead of giving up.
+  const data = parse(fixture("ambiguous.tsv"), {
+    filename: "ambiguous.tsv",
+    columns: ["qseqid", "sseqid", "length", "mismatch"],
+  });
+  assert.equal(data.hits.length, 2);
+  assert.equal(data.hits[0].qseqid, "query1");
+  assert.equal(data.hits[0].sseqid, "sbjct_A");
+  assert.equal(data.hits[0].length, 200);
+  assert.equal(data.hits[0].mismatch, 3);
 });
 
 test("plain uncommented header row is detected and used for column mapping", () => {

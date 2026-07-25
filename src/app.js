@@ -5,8 +5,10 @@
 import { parse, ColumnMappingNeeded } from "./parse/index.js";
 import { parseFasta } from "./parse/fasta.js";
 import { mountExplorer } from "./explorer.js";
+import { renderColumnMapping } from "./render/column-mapping.js";
 
 const explorerEl = document.getElementById("explorer");
+const columnMappingEl = document.getElementById("columnMapping");
 const fileInput = document.getElementById("fileInput");
 const empty = document.getElementById("empty");
 const drop = document.getElementById("drop");
@@ -26,6 +28,7 @@ function showError(msg) {
 
 function loadData(data, name) {
   empty.style.display = "none";
+  columnMappingEl.style.display = "none";
   explorerEl.style.display = "flex";
   explorerEl.style.flexDirection = "column";
   hTitle.textContent = name || "";
@@ -48,12 +51,34 @@ function openText(text, name) {
     loadData(data, name);
   } catch (err) {
     if (err instanceof ColumnMappingNeeded) {
-      // TODO: Phase 1 manual column-mapping UI; for now surface the reason clearly.
-      showError(`Couldn't detect columns in ${name}: ${err.message}`);
+      showColumnMapping(err, text, name);
       return;
     }
     showError(`Couldn't parse ${name}: ${err && err.message ? err.message : err}`);
   }
+}
+
+function showColumnMapping(err, text, name) {
+  empty.style.display = "none";
+  explorerEl.style.display = "none";
+  columnMappingEl.style.display = "block";
+  renderColumnMapping(columnMappingEl, {
+    message: err.message,
+    previewRows: err.previewRows,
+    onApply(columns) {
+      try {
+        const data = parse(text, { filename: name, columns });
+        loadData(data, name);
+      } catch (retryErr) {
+        showError(`Still couldn't parse ${name} with that mapping: ${retryErr && retryErr.message ? retryErr.message : retryErr}`);
+      }
+    },
+    onCancel() {
+      columnMappingEl.style.display = "none";
+      if (handle) explorerEl.style.display = "flex"; // a dataset was already loaded — go back to it
+      else empty.style.display = "block";
+    },
+  });
 }
 
 async function openFile(file) {

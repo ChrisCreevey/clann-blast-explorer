@@ -5,10 +5,10 @@
 import { parseBlastTabular } from "./blast-tabular.js";
 
 export class ColumnMappingNeeded extends Error {
-  constructor(message, { rawFirstRow } = {}) {
+  constructor(message, { previewRows } = {}) {
     super(message);
     this.name = "ColumnMappingNeeded";
-    this.rawFirstRow = rawFirstRow;
+    this.previewRows = previewRows || [];
   }
 }
 
@@ -39,8 +39,11 @@ export function parse(text, opts = {}) {
     ({ format, columns, hits } = parseBlastTabular(text, opts));
   } catch (err) {
     if (opts.columns) throw err; // manual mapping was already tried and still failed
-    const rawFirstRow = text.split(/\r?\n/).find((l) => l.trim() && !l.startsWith("#"));
-    throw new ColumnMappingNeeded(err.message, { rawFirstRow: rawFirstRow ? rawFirstRow.split("\t") : [] });
+    const previewRows = text.split(/\r?\n/)
+      .filter((l) => l.trim() && !l.startsWith("#"))
+      .slice(0, 5)
+      .map((l) => l.split("\t"));
+    throw new ColumnMappingNeeded(err.message, { previewRows });
   }
 
   const hasTaxonomy = hits.some((h) => h.staxids || h.sscinames);
