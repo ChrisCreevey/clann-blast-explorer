@@ -1,0 +1,6 @@
+# SYNTHETIC EXAMPLE DATA — not real BLAST output, generated for Clann BLAST Explorer development/testing.
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score, query length, subject length, subject tax ids, subject sci names, subject title
+geneA	protX_homo	97.2	310	8	0	1	310	1	310	0.0	580	310	312	9606	Homo sapiens	hypothetical protein X [Homo sapiens]
+geneA	protX_mus	89.5	305	30	1	3	307	1	304	1e-140	490	310	306	10090	Mus musculus	hypothetical protein X [Mus musculus]
+geneA	protX_dros	42.1	260	140	4	20	275	5	258	3e-30	120	310	270	7227	Drosophila melanogaster	distant homolog X [Drosophila melanogaster]
+geneB	protY_homo	99.9	150	0	0	1	150	1	150	1e-95	305	150	150	9606	Homo sapiens	protein Y [Homo sapiens]

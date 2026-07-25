@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clann BLAST Explorer — free online BLAST tabular output viewer</title>
+<meta name="description" content="Free, browser-based BLAST tabular output explorer. Load -outfmt 6/7 or DIAMOND tabular results to filter, summarise, and visualise hits per query and across a whole run, compute reciprocal best hits, and export FASTA subsets for downstream alignment and phylogenetics. Nothing is uploaded; everything runs in your browser.">
+<meta name="keywords" content="BLAST viewer, BLAST tabular output, outfmt 6, outfmt 7, DIAMOND output, reciprocal best hit, RBH, bioinformatics, sequence homology, hit table viewer, online BLAST explorer">
+<meta name="author" content="CreeveyLab">
+<link rel="canonical" href="https://chriscreevey.github.io/clann-blast-explorer/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Clann BLAST Explorer">
+<meta property="og:title" content="Clann BLAST Explorer — online BLAST tabular output viewer">
+<meta property="og:description" content="Load BLAST/DIAMOND tabular output in your browser — filter, summarise, visualise hits, compute reciprocal best hits, and export FASTA subsets. Nothing leaves your machine.">
+<meta property="og:url" content="https://chriscreevey.github.io/clann-blast-explorer/">
+<meta property="og:image" content="https://chriscreevey.github.io/clann-blast-explorer/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Clann BLAST Explorer — BLAST tabular output explorer">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Clann BLAST Explorer — online BLAST tabular output viewer">
+<meta name="twitter:description" content="Load BLAST/DIAMOND tabular output in your browser — filter, summarise, visualise hits, compute RBH, and export FASTA subsets.">
+<meta name="twitter:image" content="https://chriscreevey.github.io/clann-blast-explorer/og-image.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Clann BLAST Explorer",
+  "url": "https://chriscreevey.github.io/clann-blast-explorer/",
+  "applicationCategory": "BioinformaticsApplication",
+  "operatingSystem": "Any (modern web browser)",
+  "browserRequirements": "Requires JavaScript",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "Free browser-based BLAST tabular output explorer. Filter, summarise, and visualise BLAST/DIAMOND hits, compute reciprocal best hits, and export FASTA subsets for alignment and phylogenetics.",
+  "keywords": "BLAST viewer, outfmt 6, outfmt 7, DIAMOND, reciprocal best hit, hit table",
+  "author": { "@type": "Organization", "name": "CreeveyLab", "url": "https://www.creeveylab.org/" },
+  "codeRepository": "https://github.com/ChrisCreevey/clann-blast-explorer"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "How do I view BLAST tabular output online?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Open Clann BLAST Explorer, then click Open file or drag your -outfmt 6 or -outfmt 7 tabular file onto the window. You can also paste tabular text straight in. The hit table renders instantly and stays on your machine." } },
+    { "@type": "Question", "name": "Does it support DIAMOND output?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. DIAMOND's default tabular output uses the same 12-column layout as BLAST -outfmt 6 and is recognised automatically." } },
+    { "@type": "Question", "name": "Is my data uploaded to a server?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Everything runs client-side in your browser, so your BLAST results never leave your computer." } },
+    { "@type": "Question", "name": "Can it compute reciprocal best hits (RBH)?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Load a forward and reverse BLAST run and it will classify each query as reciprocal, one-way, or no hit under the active thresholds." } },
+    { "@type": "Question", "name": "Can I export sequences for alignment?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, when qseq/sseq columns are present, or by uploading the original query/subject FASTA for ID-matched export of the current filtered selection." } },
+    { "@type": "Question", "name": "Does it run BLAST for me?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. It only explores existing BLAST/DIAMOND tabular output — it does not run searches or fetch sequences automatically." } },
+    { "@type": "Question", "name": "Is Clann BLAST Explorer free?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes, it is free and open source, developed by CreeveyLab as a companion to Clann Tree Viewer." } }
+  ]
+}
+</script>
+<link rel="stylesheet" href="styles/explorer.css">
+</head>
+<body>
+<div id="app" style="display:flex;flex-direction:column;flex:1;min-height:0">
+  <header>
+    <span class="brand" id="brand">Clann BLAST Explorer</span>
+    <span class="title" id="hTitle"></span>
+    <span class="meta" id="hMeta"></span>
+    <span class="spacer"></span>
+    <button id="uploadBtn" title="Open a BLAST/DIAMOND tabular file">Open file…</button>
+    <button class="act" style="width:auto" id="themeBtn" title="Toggle light/dark">◐</button>
+  </header>
+  <main>
+    <aside id="side">
+      <h4>Query</h4>
+      <select id="querySelect" title="Select a query to inspect"></select>
+      <div class="hint" id="queryMeta"></div>
+
+      <details class="sect" id="rowFilters">
+        <summary>Filters</summary>
+        <div class="hint">Threshold filtering, top-N cap, and taxon include/exclude arrive in Phase 2.</div>
+      </details>
+
+      <details class="sect" id="rowRbh">
+        <summary>RBH mode</summary>
+        <div class="hint">Reciprocal best hit computation across a forward/reverse pair arrives in Phase 3.</div>
+      </details>
+
+      <details class="sect" id="rowExport">
+        <summary>Export</summary>
+        <div class="hint">FASTA and CSV/TSV export arrive in Phase 4.</div>
+      </details>
+    </aside>
+    <div id="sideResize" title="Drag to resize the panel · double-click to reset"></div>
+    <div id="wrap">
+      <div id="explorer" style="display:none"></div>
+      <div id="drop">Drop a BLAST/DIAMOND tabular file to explore</div>
+      <div id="empty">
+        <div class="hero">
+          <h1>Clann BLAST Explorer</h1>
+          <div class="lead">A free, browser-based explorer for BLAST tabular output. Open a <code>-outfmt 6</code> or <code>-outfmt 7</code> file, or DIAMOND tabular output — drag one in, or paste it — then browse hits per query, summarise and filter across the whole run, compute reciprocal best hits, and export FASTA subsets for alignment and phylogenetics (including in <a href="https://github.com/ChrisCreevey/clann-tree-viewer" target="_blank" rel="noopener">Clann Tree Viewer</a>).<br>Everything runs locally; nothing is uploaded to a server.</div>
+          <div class="exts">outfmt 6 · outfmt 7 · DIAMOND · .tsv · .txt</div>
+          <button id="emptyOpen">Open file…</button>
+          <div class="scroll-hint">↓ About &amp; FAQ</div>
+        </div>
+        <section class="about">
+          <h2>About Clann BLAST Explorer</h2>
+          <p><strong>Clann BLAST Explorer</strong> is a free, open-source tool for exploring <strong>BLAST</strong> and <strong>DIAMOND</strong> tabular output entirely in your web browser. Open a <code>-outfmt 6</code> or <code>-outfmt 7</code> file — or paste tabular text — and see, for each query, a ranked hit table, a best-hit summary, and a coverage diagram of where each high-scoring pair (HSP) falls along the query. Across the whole run, filter by identity, e-value, bit score, alignment length, and query coverage; view distribution charts and a taxonomy breakdown when taxonomy columns are present; compute <strong>reciprocal best hits</strong> from a forward/reverse pair; and export FASTA subsets or CSV/TSV tables for downstream work, including alignment and tree building in <a href="https://github.com/ChrisCreevey/clann-tree-viewer" target="_blank" rel="noopener">Clann Tree Viewer</a>.</p>
+          <p>Because all parsing and rendering happen locally in your browser, your BLAST results are never uploaded to a server.</p>
+
+          <h2>Frequently asked questions</h2>
+
+          <h3>How do I view BLAST tabular output online?</h3>
+          <p>Open Clann BLAST Explorer, then click “Open file…” or drag your <code>-outfmt 6</code> or <code>-outfmt 7</code> tabular file onto the window. You can also paste tabular text straight in. The hit table renders instantly and stays on your machine.</p>
+
+          <h3>Does it support DIAMOND output?</h3>
+          <p>Yes. DIAMOND's default tabular output uses the same 12-column layout as BLAST <code>-outfmt 6</code> and is recognised automatically.</p>
+
+          <h3>Is my data uploaded to a server?</h3>
+          <p>No. Everything runs client-side in your browser, so your BLAST results never leave your computer.</p>
+
+          <h3>Can it compute reciprocal best hits (RBH)?</h3>
+          <p>Yes. Load a forward and reverse BLAST run and it classifies each query as reciprocal, one-way, or no hit under the active thresholds. (Coming in Phase 3.)</p>
+
+          <h3>Can I export sequences for alignment?</h3>
+          <p>Yes, when <code>qseq</code>/<code>sseq</code> columns are present, or by uploading the original query/subject FASTA for ID-matched export of the current filtered selection. (Coming in Phase 4.)</p>
+
+          <h3>Does it run BLAST for me?</h3>
+          <p>No. It does not run BLAST or DIAMOND searches, does not fetch sequences from NCBI/UniProt/EBI automatically, and does not build alignments or trees itself — it stages data for tools that do, including <a href="https://github.com/ChrisCreevey/clann-tree-viewer" target="_blank" rel="noopener">Clann Tree Viewer</a>.</p>
+
+          <h3>Is it free?</h3>
+          <p>Yes — Clann BLAST Explorer is free and open source, developed by <a href="https://www.creeveylab.org/" target="_blank" rel="noopener">CreeveyLab</a>. Use it online or clone the <a href="https://github.com/ChrisCreevey/clann-blast-explorer" target="_blank" rel="noopener">repository</a> and host it yourself.</p>
+
+          <p class="about-foot">Developed by <a href="https://www.creeveylab.org/" target="_blank" rel="noopener">CreeveyLab</a> · <a href="https://github.com/ChrisCreevey/clann-blast-explorer" target="_blank" rel="noopener">source on GitHub</a> · companion to <a href="https://github.com/ChrisCreevey/clann-tree-viewer" target="_blank" rel="noopener">Clann Tree Viewer</a>.</p>
+        </section>
+      </div>
+      <div class="err" id="err"></div>
+    </div>
+  </main>
+  <footer id="foot">
+    <span class="foot-l">
+      <strong>Clann BLAST Explorer</strong><span class="sep">·</span>developed by
+      <a href="https://www.creeveylab.org/" target="_blank" rel="noopener">CreeveyLab</a>
+    </span>
+    <span class="foot-r">
+      <a href="https://github.com/ChrisCreevey/clann-blast-explorer/issues/new/choose" target="_blank" rel="noopener" title="Suggest a feature or report a problem (opens GitHub — a free account is needed to post)">Feedback</a>
+      <a href="https://github.com/ChrisCreevey/clann-blast-explorer" target="_blank" rel="noopener" title="Source code on GitHub">GitHub</a>
+      <a class="like" id="likeBtn" href="https://github.com/ChrisCreevey/clann-blast-explorer" target="_blank" rel="noopener"
+         title="Like it? Star the repository on GitHub (opens GitHub — a free account is needed to star)">
+        <span class="like-ico">★</span> Like it?<span class="like-count" id="starCount" hidden></span>
+      </a>
+    </span>
+  </footer>
+</div>
+<input type="file" id="fileInput" accept=".tsv,.tab,.txt,.blast,.m8,text/plain" style="display:none">
+<script type="module" src="src/app.js"></script>
+</body>
+</html>

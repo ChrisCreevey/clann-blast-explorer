@@ -1,0 +1,13 @@
+# BLASTN 2.13.0+
+# Query: query1
+# Database: nr
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score, subject tax ids, subject sci names
+# 2 hits found
+query1	sbjct_A	98.5	200	3	0	1	200	10	209	1e-100	370	9606	Homo sapiens
+query1	sbjct_B	75.2	180	40	2	5	184	20	198	2e-40	150	10090	Mus musculus
+# BLASTN 2.13.0+
+# Query: query2
+# Database: nr
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score, subject tax ids, subject sci names
+# 1 hits found
+query2	sbjct_C	60.1	120	45	1	1	120	5	124	3e-15	80	7227	Drosophila melanogaster

@@ -1,0 +1,5 @@
+# SYNTHETIC EXAMPLE — RBH forward run (species A queries vs species B database)
+geneA	B_geneA	98.0	300	6	0	1	300	1	300	0.0	560
+geneA	B_geneX	55.0	280	100	3	1	280	1	276	1e-40	160
+geneB	B_geneB	96.5	250	8	0	1	250	1	250	1e-130	460
+geneC	B_geneY	60.0	150	55	1	1	150	1	148	1e-25	100
