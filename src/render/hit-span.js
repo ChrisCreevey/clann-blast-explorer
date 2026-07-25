@@ -75,7 +75,7 @@ export function renderHitSpan(container, hits, opts = {}) {
       defs.appendChild(clip);
 
       const label = el("text", {
-        class: "hsp-label", x: x1 + 3, y: y + boxH - 3,
+        class: "hsp-label", x: x1 + boxW / 2, y: y + boxH - 3, "text-anchor": "middle",
         "clip-path": `url(#${clipId})`,
       });
       label.textContent = h.sseqid;
