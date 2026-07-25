@@ -12,6 +12,9 @@ import { perQuerySummary } from "../src/analysis/summary.js";
 import { taxonLabel } from "../src/render/taxonomy.js";
 import { computeRBH } from "../src/analysis/rbh.js";
 import { toDelimited } from "../export/table-export.js";
+import {
+  querySeqEntriesFromHits, subjectSeqEntriesFromHits, matchedFastaEntries, toFasta, accessionListText,
+} from "../export/fasta-export.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(path.join(__dirname, "fixtures", name), "utf8");
@@ -180,4 +183,37 @@ test("toDelimited: builds TSV with header and escapes embedded delimiters", () =
   const lines = text.trim().split("\n");
   assert.equal(lines[0], "a\tb");
   assert.equal(lines[1], '"x\ty"\t2');
+});
+
+test("querySeqEntriesFromHits: one entry per query, first qseq wins", () => {
+  const hits = [
+    { qseqid: "q1", qseq: "ACGT" },
+    { qseqid: "q1", qseq: "TTTT" }, // ignored: q1 already captured
+    { qseqid: "q2", qseq: "GGCC" },
+    { qseqid: "q3" }, // no qseq column — excluded
+  ];
+  const entries = querySeqEntriesFromHits(hits);
+  assert.deepEqual(entries, [{ id: "q1", seq: "ACGT" }, { id: "q2", seq: "GGCC" }]);
+});
+
+test("subjectSeqEntriesFromHits: one entry per hit row with an sseq", () => {
+  const hits = [
+    { qseqid: "q1", sseqid: "s1", sseq: "AAAA" },
+    { qseqid: "q2", sseqid: "s1", sseq: "CCCC" }, // same subject, different query — both kept
+    { qseqid: "q3", sseqid: "s2" }, // no sseq — excluded
+  ];
+  const entries = subjectSeqEntriesFromHits(hits);
+  assert.deepEqual(entries, [{ id: "s1", seq: "AAAA" }, { id: "s1", seq: "CCCC" }]);
+});
+
+test("matchedFastaEntries: ID-matches against uploaded FASTA, tracks unmatched", () => {
+  const records = parseFasta(">q1.1 desc\nACGT\n>q2\nGGCC\n");
+  const { entries, unmatched } = matchedFastaEntries(records, ["q1", "q2", "q4"]);
+  assert.deepEqual(entries, [{ id: "q1.1", seq: "ACGT" }, { id: "q2", seq: "GGCC" }]);
+  assert.deepEqual(unmatched, ["q4"]);
+});
+
+test("toFasta / accessionListText: output formats", () => {
+  assert.equal(toFasta([{ id: "x", seq: "ACGT" }]), ">x\nACGT\n");
+  assert.equal(accessionListText(["a", "b"]), "a\nb\n");
 });

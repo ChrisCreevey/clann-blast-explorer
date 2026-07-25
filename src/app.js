@@ -3,6 +3,7 @@
 // Pure client side. Files are read with FileReader; nothing leaves the browser.
 
 import { parse, ColumnMappingNeeded } from "./parse/index.js";
+import { parseFasta } from "./parse/fasta.js";
 import { mountExplorer } from "./explorer.js";
 
 const explorerEl = document.getElementById("explorer");
@@ -31,10 +32,14 @@ function loadData(data, name) {
   hMeta.textContent = `${data.queries.length} queries · ${data.hits.length} hits · ${data.meta.format}`;
   if (handle) handle.setData(data);
   else handle = mountExplorer(explorerEl, data);
-  // A new forward run invalidates any previously loaded reverse run.
+  // A new forward run invalidates any previously loaded reverse run / uploaded FASTA files.
   document.getElementById("rbhStatus").textContent =
     "Load a second (reverse) BLAST run to compute reciprocal best hits against the current (forward) run.";
   document.getElementById("rbhClearBtn").style.display = "none";
+  document.getElementById("queryFastaStatus").textContent = "No query FASTA loaded.";
+  document.getElementById("subjectFastaStatus").textContent = "No subject FASTA loaded.";
+  document.getElementById("exportQueryFastaBtn").disabled = true;
+  document.getElementById("exportSubjectFastaBtn").disabled = true;
 }
 
 function openText(text, name) {
@@ -94,6 +99,36 @@ rbhClearBtn.addEventListener("click", () => {
   if (handle) handle.setReverseData(null);
   rbhStatus.textContent = "Load a second (reverse) BLAST run to compute reciprocal best hits against the current (forward) run.";
   rbhClearBtn.style.display = "none";
+});
+
+// --- Phase 4: upload query/subject FASTA for ID-matched export ---
+async function loadFastaInto(file, setter) {
+  if (!file || !handle) return;
+  let text;
+  try { text = await file.text(); }
+  catch { showError(`Couldn't read ${file.name}`); return; }
+  try {
+    const records = parseFasta(text);
+    if (!records.length) throw new Error("no FASTA records found");
+    setter(records, file.name);
+  } catch (err) {
+    showError(`Couldn't parse ${file.name} as FASTA: ${err && err.message ? err.message : err}`);
+  }
+}
+const queryFastaInput = document.getElementById("queryFastaInput");
+document.getElementById("loadQueryFastaBtn").addEventListener("click", () => queryFastaInput.click());
+queryFastaInput.addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  queryFastaInput.value = "";
+  loadFastaInto(f, (records, name) => handle.setQueryFasta(records, name));
+});
+
+const subjectFastaInput = document.getElementById("subjectFastaInput");
+document.getElementById("loadSubjectFastaBtn").addEventListener("click", () => subjectFastaInput.click());
+subjectFastaInput.addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  subjectFastaInput.value = "";
+  loadFastaInto(f, (records, name) => handle.setSubjectFasta(records, name));
 });
 
 // --- paste tabular text anywhere (except into a field) to load it ---

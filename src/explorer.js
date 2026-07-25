@@ -13,6 +13,12 @@ import { renderHistogram, renderScatter, renderCategoryBars } from "./render/cha
 import { renderTaxonomyChart, taxonLabel } from "./render/taxonomy.js";
 import { accessionLinkUrl } from "./parse/accession.js";
 import { toDelimited, downloadText } from "../export/table-export.js";
+import { querySeqEntriesFromHits, subjectSeqEntriesFromHits, matchedFastaEntries, toFasta, accessionListText } from "../export/fasta-export.js";
+
+const EXPORT_COLS = [
+  "qseqid", "sseqid", "pident", "length", "mismatch", "gapopen", "qstart", "qend", "sstart", "send",
+  "evalue", "bitscore", "qcovs", "staxids", "sscinames", "stitle",
+];
 
 function fmtNum(v) {
   if (v === undefined || v === null) return "—";
@@ -52,6 +58,9 @@ export function mountExplorer(container, data) {
 
   let thresholds = defaultThresholds();
   let reverseData = null;
+  let currentQseqid = null;
+  let queryFastaRecords = null;
+  let subjectFastaRecords = null;
 
   container.innerHTML = "";
   const summaryCard = document.createElement("div");
@@ -297,6 +306,7 @@ export function mountExplorer(container, data) {
   }
 
   function renderQuery(qseqid) {
+    currentQseqid = qseqid;
     const summary = querySummary(data, qseqid);
     const allHits = data.hits.filter((h) => h.qseqid === qseqid);
     const hits = filterHits(allHits, thresholds).sort((a, b) => {
@@ -364,6 +374,115 @@ export function mountExplorer(container, data) {
   ["chartMetric", "chartScope"].forEach((id) => document.getElementById(id).addEventListener("change", renderCharts));
   document.getElementById("scatterColorBy").addEventListener("change", renderScatterChart);
 
+  // --- Phase 4: export ---
+  function showNote(msg) {
+    const err = document.getElementById("err");
+    if (!err) return;
+    err.textContent = msg;
+    err.style.display = "block";
+    clearTimeout(showNote._t);
+    showNote._t = setTimeout(() => (err.style.display = "none"), 4000);
+  }
+
+  function scopeHits() {
+    const scope = document.getElementById("exportScope").value;
+    const base = scope === "query" && currentQseqid
+      ? data.hits.filter((h) => h.qseqid === currentQseqid)
+      : data.hits;
+    return filterHits(base, thresholds);
+  }
+
+  function exportColumnsFor(hits) {
+    return EXPORT_COLS.filter((c) => hits.some((h) => h[c] !== undefined));
+  }
+
+  const hasSeq = data.meta.hasSequences;
+  document.getElementById("exportQseqBtn").style.display = hasSeq ? "" : "none";
+  document.getElementById("exportSseqBtn").style.display = hasSeq ? "" : "none";
+  document.getElementById("seqExportHint").style.display = hasSeq ? "none" : "";
+
+  document.getElementById("exportTsvBtn").addEventListener("click", () => {
+    const hits = scopeHits();
+    downloadText("blast-hits.tsv", toDelimited(hits, exportColumnsFor(hits), "\t"), "text/tab-separated-values");
+  });
+  document.getElementById("exportCsvBtn").addEventListener("click", () => {
+    const hits = scopeHits();
+    downloadText("blast-hits.csv", toDelimited(hits, exportColumnsFor(hits), ","), "text/csv");
+  });
+
+  document.getElementById("exportQseqBtn").addEventListener("click", () => {
+    const entries = querySeqEntriesFromHits(scopeHits());
+    if (!entries.length) return showNote("No qseq sequences in the current scope.");
+    downloadText("query-sequences.fasta", toFasta(entries), "text/x-fasta");
+  });
+  document.getElementById("exportSseqBtn").addEventListener("click", () => {
+    const entries = subjectSeqEntriesFromHits(scopeHits());
+    if (!entries.length) return showNote("No sseq sequences in the current scope.");
+    downloadText("subject-sequences.fasta", toFasta(entries), "text/x-fasta");
+  });
+
+  const queryFastaStatus = document.getElementById("queryFastaStatus");
+  const exportQueryFastaBtn = document.getElementById("exportQueryFastaBtn");
+  const subjectFastaStatus = document.getElementById("subjectFastaStatus");
+  const exportSubjectFastaBtn = document.getElementById("exportSubjectFastaBtn");
+  const exportCombinedBtn = document.getElementById("exportCombinedBtn");
+
+  exportQueryFastaBtn.addEventListener("click", () => {
+    if (!queryFastaRecords) return showNote("Upload a query FASTA first.");
+    const bucket = document.getElementById("queryFastaBucket").value;
+    const perQ = perQuerySummary(data, thresholds);
+    const ids = (bucket === "all" ? perQ : perQ.filter((q) => q.flag === bucket)).map((q) => q.qseqid);
+    const { entries, unmatched } = matchedFastaEntries(queryFastaRecords, ids);
+    if (!entries.length) return showNote("No matching sequences found in the uploaded query FASTA.");
+    downloadText(`query-${bucket}.fasta`, toFasta(entries), "text/x-fasta");
+    if (unmatched.length) showNote(`${unmatched.length} of ${ids.length} query IDs had no match in the uploaded FASTA.`);
+  });
+
+  exportSubjectFastaBtn.addEventListener("click", () => {
+    if (!subjectFastaRecords) return showNote("Upload a subject FASTA first.");
+    const ids = [...new Set(scopeHits().map((h) => h.sseqid))];
+    const { entries, unmatched } = matchedFastaEntries(subjectFastaRecords, ids);
+    if (!entries.length) return showNote("No matching sequences found in the uploaded subject FASTA.");
+    downloadText("subject-subset.fasta", toFasta(entries), "text/x-fasta");
+    if (unmatched.length) showNote(`${unmatched.length} of ${ids.length} subject IDs had no match in the uploaded FASTA.`);
+  });
+
+  exportCombinedBtn.addEventListener("click", () => {
+    if (!currentQseqid) return showNote("Select a query first.");
+    const queryHits = filterHits(data.hits.filter((h) => h.qseqid === currentQseqid), thresholds);
+
+    let queryEntry = null;
+    if (queryFastaRecords) {
+      const { entries } = matchedFastaEntries(queryFastaRecords, [currentQseqid]);
+      queryEntry = entries[0] || null;
+    }
+    if (!queryEntry) {
+      const [fallback] = querySeqEntriesFromHits(queryHits);
+      queryEntry = fallback || null;
+    }
+
+    let hitEntries = [];
+    const sseqids = [...new Set(queryHits.map((h) => h.sseqid))];
+    if (subjectFastaRecords && sseqids.length) {
+      hitEntries = matchedFastaEntries(subjectFastaRecords, sseqids).entries;
+    }
+    if (!hitEntries.length) {
+      hitEntries = subjectSeqEntriesFromHits(queryHits);
+    }
+
+    const entries = [queryEntry, ...hitEntries].filter(Boolean);
+    if (!entries.length) {
+      return showNote("No sequences available — upload query/subject FASTA files or use a file with qseq/sseq columns.");
+    }
+    downloadText(`${currentQseqid}-combined.fasta`, toFasta(entries), "text/x-fasta");
+  });
+
+  document.getElementById("exportAccessionBtn").addEventListener("click", () => {
+    const ids = [...new Set(scopeHits().map((h) => h.sseqid))];
+    if (!ids.length) return showNote("No hits in the current scope.");
+    downloadText("accessions.txt", accessionListText(ids), "text/plain");
+  });
+
   readThresholds();
   renderAcrossQueries();
   if (data.queries.length) renderQuery(data.queries[0].qseqid);
@@ -376,6 +495,20 @@ export function mountExplorer(container, data) {
     setReverseData(newReverseData) {
       reverseData = newReverseData;
       renderRBH();
+    },
+    setQueryFasta(records, filename) {
+      queryFastaRecords = records;
+      queryFastaStatus.textContent = records
+        ? `Loaded ${filename} (${records.length} sequences)`
+        : "No query FASTA loaded.";
+      exportQueryFastaBtn.disabled = !records;
+    },
+    setSubjectFasta(records, filename) {
+      subjectFastaRecords = records;
+      subjectFastaStatus.textContent = records
+        ? `Loaded ${filename} (${records.length} sequences)`
+        : "No subject FASTA loaded.";
+      exportSubjectFastaBtn.disabled = !records;
     },
   };
 }

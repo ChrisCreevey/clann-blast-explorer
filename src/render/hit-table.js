@@ -7,7 +7,7 @@ const NUMERIC = new Set([
   "evalue", "bitscore", "qlen", "slen", "qcovs", "qcovhsp",
 ]);
 
-const DEFAULT_COLS = ["sseqid", "pident", "length", "mismatch", "gapopen", "qstart", "qend", "sstart", "send", "evalue", "bitscore"];
+export const DEFAULT_COLS = ["sseqid", "pident", "length", "mismatch", "gapopen", "qstart", "qend", "sstart", "send", "evalue", "bitscore"];
 
 /** Stable identity for a hit row, independent of sort order — used to link the HSP diagram back to its table row. */
 export function hitKey(hit) {

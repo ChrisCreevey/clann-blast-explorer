@@ -109,7 +109,45 @@
 
       <details class="sect" id="rowExport">
         <summary>Export</summary>
-        <div class="hint">FASTA and CSV/TSV export arrive in Phase 4.</div>
+
+        <div class="row"><label for="exportScope">Scope</label></div>
+        <select id="exportScope">
+          <option value="query">Current query</option>
+          <option value="all">All filtered hits</option>
+        </select>
+
+        <h4>Hit table</h4>
+        <button class="act" id="exportTsvBtn">Download TSV</button>
+        <button class="act" id="exportCsvBtn">Download CSV</button>
+
+        <h4 id="seqExportHeading">Sequences (qseq/sseq columns)</h4>
+        <button class="act" id="exportQseqBtn">Query sequences (FASTA)</button>
+        <button class="act" id="exportSseqBtn">Subject sequences (FASTA)</button>
+        <div class="hint" id="seqExportHint" style="display:none">No qseq/sseq columns in this file — upload the original FASTA files below instead.</div>
+
+        <h4>Query FASTA (upload)</h4>
+        <button class="act" id="loadQueryFastaBtn">Upload query FASTA…</button>
+        <div class="hint" id="queryFastaStatus">No query FASTA loaded.</div>
+        <select id="queryFastaBucket">
+          <option value="hit">Queries passing filters</option>
+          <option value="weak">Weak-hit queries</option>
+          <option value="none">No-hit queries</option>
+          <option value="all">All queries</option>
+        </select>
+        <button class="act" id="exportQueryFastaBtn" disabled>Export subset FASTA</button>
+
+        <h4>Subject FASTA (upload)</h4>
+        <button class="act" id="loadSubjectFastaBtn">Upload subject/hit FASTA…</button>
+        <div class="hint" id="subjectFastaStatus">No subject FASTA loaded.</div>
+        <button class="act" id="exportSubjectFastaBtn" disabled>Export subset FASTA (current scope)</button>
+
+        <h4>Combined</h4>
+        <button class="act" id="exportCombinedBtn">Query + hit sequences (current query)</button>
+        <div class="hint">For direct use in an alignment tool. Needs a query sequence (uploaded FASTA or a qseq column) and at least one hit sequence (uploaded FASTA or sseq column).</div>
+
+        <h4>Accession list</h4>
+        <button class="act" id="exportAccessionBtn">Download accession list (.txt, current scope)</button>
+        <div class="hint">Subject IDs only, one per line — for NCBI Batch Entrez or similar when sequences aren't available locally.</div>
       </details>
     </aside>
     <div id="sideResize" title="Drag to resize the panel · double-click to reset"></div>
@@ -175,6 +213,8 @@
 </div>
 <input type="file" id="fileInput" accept=".tsv,.tab,.txt,.blast,.m8,text/plain" style="display:none">
 <input type="file" id="reverseFileInput" accept=".tsv,.tab,.txt,.blast,.m8,text/plain" style="display:none">
+<input type="file" id="queryFastaInput" accept=".fasta,.fa,.fna,.faa,.txt,text/plain" style="display:none">
+<input type="file" id="subjectFastaInput" accept=".fasta,.fa,.fna,.faa,.txt,text/plain" style="display:none">
 <script type="module" src="src/app.js"></script>
 </body>
 </html>
