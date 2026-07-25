@@ -45,21 +45,44 @@ export function renderHitSpan(container, hits, opts = {}) {
     class: "qbar", x: pad, y: pad - 10, width: width - 2 * pad, height: 4, rx: 2,
   }));
 
+  const defs = el("defs", {});
+  svg.appendChild(defs);
+
   hits.forEach((h, i) => {
     const y = pad + i * rowH;
     const x1 = scale(Math.min(h.qstart || 0, h.qend || 0));
     const x2 = scale(Math.max(h.qstart || 0, h.qend || 0));
+    const boxW = Math.max(1, x2 - x1);
+    const boxH = rowH - 4;
+    const g = el("g", {});
     const rect = el("rect", {
-      class: "hsp", x: x1, y, width: Math.max(1, x2 - x1), height: rowH - 4, rx: 2,
+      class: "hsp", x: x1, y, width: boxW, height: boxH, rx: 2,
     });
     const title = el("title", {});
     title.textContent = `${h.sseqid}  ${h.qstart}-${h.qend}  ${h.pident ?? "?"}% id  e=${h.evalue ?? "?"}`;
     rect.appendChild(title);
     if (opts.onHspClick) {
       rect.classList.add("clickable");
-      rect.addEventListener("click", () => opts.onHspClick(h));
+      g.addEventListener("click", () => opts.onHspClick(h));
+      g.classList.add("clickable");
     }
-    svg.appendChild(rect);
+    g.appendChild(rect);
+
+    if (h.sseqid && boxW >= 14) {
+      const clipId = `hsp-clip-${i}`;
+      const clip = el("clipPath", { id: clipId });
+      clip.appendChild(el("rect", { x: x1, y, width: boxW, height: boxH }));
+      defs.appendChild(clip);
+
+      const label = el("text", {
+        class: "hsp-label", x: x1 + 3, y: y + boxH - 3,
+        "clip-path": `url(#${clipId})`,
+      });
+      label.textContent = h.sseqid;
+      g.appendChild(label);
+    }
+
+    svg.appendChild(g);
   });
 
   const startLabel = el("text", { x: pad, y: height - 8 });

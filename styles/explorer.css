@@ -152,6 +152,9 @@ table.hit-table td a:hover{text-decoration:underline}
 .hit-span-svg .hsp{fill:var(--accent);opacity:.75}
 .hit-span-svg .hsp:hover{opacity:1}
 .hit-span-svg .hsp.clickable{cursor:pointer}
+.hit-span-svg g.clickable{cursor:pointer}
 .hit-span-svg .axis{stroke:var(--muted);stroke-width:1}
 .hit-span-svg text{fill:var(--muted);font-size:10px;font-family:var(--font-mono)}
+.hit-span-svg .hsp-label{fill:#fff;font-size:9px;pointer-events:none}
+:root[data-theme="dark"] .hit-span-svg .hsp-label{fill:var(--stone-900)}
 .empty-note{color:var(--muted);font-style:italic;padding:12px}
