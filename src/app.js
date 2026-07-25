@@ -6,6 +6,7 @@ import { parse, ColumnMappingNeeded } from "./parse/index.js";
 import { parseFasta } from "./parse/fasta.js";
 import { mountExplorer } from "./explorer.js";
 import { renderColumnMapping } from "./render/column-mapping.js";
+import { extractNamesDmpFromTarGz, parseNamesDmp } from "./parse/taxdump.js";
 
 const explorerEl = document.getElementById("explorer");
 const columnMappingEl = document.getElementById("columnMapping");
@@ -33,7 +34,7 @@ function loadData(data, name) {
   explorerEl.style.flexDirection = "column";
   hTitle.textContent = name || "";
   hMeta.textContent = `${data.queries.length} queries · ${data.hits.length} hits · ${data.meta.format}`;
-  if (handle) handle.setData(data);
+  if (handle) handle = handle.setData(data);
   else handle = mountExplorer(explorerEl, data);
   // A new forward run invalidates any previously loaded reverse run / uploaded FASTA files.
   document.getElementById("rbhStatus").textContent =
@@ -43,6 +44,9 @@ function loadData(data, name) {
   document.getElementById("subjectFastaStatus").textContent = "No subject FASTA loaded.";
   document.getElementById("exportQueryFastaBtn").disabled = true;
   document.getElementById("exportSubjectFastaBtn").disabled = true;
+  document.getElementById("taxdumpStatus").textContent = "No taxonomy mapping loaded.";
+  document.getElementById("taxdumpControls").style.display = "none";
+  document.getElementById("clearTaxdumpBtn").style.display = "none";
 }
 
 function openText(text, name) {
@@ -154,6 +158,35 @@ subjectFastaInput.addEventListener("change", (e) => {
   const f = e.target.files && e.target.files[0];
   subjectFastaInput.value = "";
   loadFastaInto(f, (records, name) => handle.setSubjectFasta(records, name));
+});
+
+// --- taxonomy mapping: upload NCBI names.dmp (or taxdump.tar.gz, extracted client-side) ---
+const taxdumpInput = document.getElementById("taxdumpInput");
+const taxdumpStatus = document.getElementById("taxdumpStatus");
+const loadTaxdumpBtn = document.getElementById("loadTaxdumpBtn");
+document.getElementById("loadTaxdumpBtn").addEventListener("click", () => taxdumpInput.click());
+taxdumpInput.addEventListener("change", async (e) => {
+  const f = e.target.files && e.target.files[0];
+  taxdumpInput.value = "";
+  if (!f || !handle) return;
+  taxdumpStatus.textContent = "Parsing… this can take a moment for the full taxdump.";
+  loadTaxdumpBtn.disabled = true;
+  try {
+    let text;
+    if (/\.(tar\.gz|tgz|gz)$/i.test(f.name)) {
+      text = await extractNamesDmpFromTarGz(await f.arrayBuffer());
+    } else {
+      text = await f.text();
+    }
+    const taxonMap = parseNamesDmp(text);
+    if (!taxonMap.size) throw new Error("no scientific names found — is this a names.dmp file?");
+    handle.setTaxonMap(taxonMap, f.name);
+  } catch (err) {
+    showError(`Couldn't load taxonomy dump ${f.name}: ${err && err.message ? err.message : err}`);
+    taxdumpStatus.textContent = "No taxonomy mapping loaded.";
+  } finally {
+    loadTaxdumpBtn.disabled = false;
+  }
 });
 
 // --- paste tabular text anywhere (except into a field) to load it ---

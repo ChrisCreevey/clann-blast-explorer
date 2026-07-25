@@ -7,6 +7,8 @@
 import { querySummary, globalSummary, perQuerySummary, bestHits } from "./analysis/summary.js";
 import { defaultThresholds, filterHits, computeQcov } from "./analysis/filters.js";
 import { computeRBH } from "./analysis/rbh.js";
+import { buildQueries } from "./parse/index.js";
+import { buildTaxonPreview, enrichHitsWithTaxonomy } from "./parse/taxdump.js";
 import { renderHitTable } from "./render/hit-table.js";
 import { renderHitSpan } from "./render/hit-span.js";
 import { renderHistogram, renderScatter, renderCategoryBars } from "./render/charts.js";
@@ -63,10 +65,14 @@ export function mountExplorer(container, data) {
   const taxonIncludeInput = filterInputs.taxonInclude;
   const taxonExcludeInput = filterInputs.taxonExclude;
 
-  const showTaxonFilters = !!data.meta.hasTaxonomy;
-  [rowTaxonInclude, rowTaxonExclude, taxonIncludeInput, taxonExcludeInput].forEach((el) => {
-    if (el) el.style.display = showTaxonFilters ? "" : "none";
-  });
+  let showTaxonFilters = !!data.meta.hasTaxonomy;
+  function updateTaxonFilterVisibility() {
+    showTaxonFilters = !!data.meta.hasTaxonomy;
+    [rowTaxonInclude, rowTaxonExclude, taxonIncludeInput, taxonExcludeInput].forEach((el) => {
+      if (el) el.style.display = showTaxonFilters ? "" : "none";
+    });
+  }
+  updateTaxonFilterVisibility();
 
   let thresholds = defaultThresholds();
   let filterHistory = []; // previous thresholds, for Undo
@@ -74,6 +80,9 @@ export function mountExplorer(container, data) {
   let currentQseqid = null;
   let queryFastaRecords = null;
   let subjectFastaRecords = null;
+  let taxonMap = null;
+  let taxdumpFilename = null;
+  const pristineHits = data.hits; // hits as originally parsed, before any taxonomy enrichment — for Clear
 
   container.innerHTML = "";
 
@@ -451,31 +460,35 @@ export function mountExplorer(container, data) {
     undoBtn.disabled = false;
   }
 
+  // NOTE: persistent sidebar controls (outside `container`, so they survive a
+  // later mountExplorer() call for a new file) use property-style assignment
+  // (.oninput=/.onclick=/.onchange=) rather than addEventListener, so that a
+  // second file load's fresh handler replaces the first instead of both firing.
   Object.values(filterInputs).forEach((el) => {
     if (!el) return;
-    el.addEventListener("input", () => {
+    el.oninput = () => {
       pushHistory();
       readThresholds();
       refreshAll();
-    });
+    };
   });
-  resetBtn.addEventListener("click", () => {
+  resetBtn.onclick = () => {
     pushHistory();
     const d = defaultThresholds();
     applyThresholdsToInputs(d);
     readThresholds();
     refreshAll();
-  });
-  undoBtn.addEventListener("click", () => {
+  };
+  undoBtn.onclick = () => {
     if (!filterHistory.length) return;
     thresholds = filterHistory.pop();
     applyThresholdsToInputs(thresholds);
     undoBtn.disabled = filterHistory.length === 0;
     refreshAll();
-  });
-  ["chartMetric", "chartScope"].forEach((id) => document.getElementById(id).addEventListener("change", renderCharts));
-  document.getElementById("scatterColorBy").addEventListener("change", renderScatterChart);
-  document.getElementById("allHitsScope").addEventListener("change", renderAllHitsTable);
+  };
+  ["chartMetric", "chartScope"].forEach((id) => { document.getElementById(id).onchange = renderCharts; });
+  document.getElementById("scatterColorBy").onchange = renderScatterChart;
+  document.getElementById("allHitsScope").onchange = renderAllHitsTable;
 
   // --- Phase 4: export ---
   function showNote(msg) {
@@ -504,25 +517,25 @@ export function mountExplorer(container, data) {
   document.getElementById("exportSseqBtn").style.display = hasSeq ? "" : "none";
   document.getElementById("seqExportHint").style.display = hasSeq ? "none" : "";
 
-  document.getElementById("exportTsvBtn").addEventListener("click", () => {
+  document.getElementById("exportTsvBtn").onclick = () => {
     const hits = scopeHits();
     downloadText("blast-hits.tsv", toDelimited(hits, exportColumnsFor(hits), "\t"), "text/tab-separated-values");
-  });
-  document.getElementById("exportCsvBtn").addEventListener("click", () => {
+  };
+  document.getElementById("exportCsvBtn").onclick = () => {
     const hits = scopeHits();
     downloadText("blast-hits.csv", toDelimited(hits, exportColumnsFor(hits), ","), "text/csv");
-  });
+  };
 
-  document.getElementById("exportQseqBtn").addEventListener("click", () => {
+  document.getElementById("exportQseqBtn").onclick = () => {
     const entries = querySeqEntriesFromHits(scopeHits());
     if (!entries.length) return showNote("No qseq sequences in the current scope.");
     downloadText("query-sequences.fasta", toFasta(entries), "text/x-fasta");
-  });
-  document.getElementById("exportSseqBtn").addEventListener("click", () => {
+  };
+  document.getElementById("exportSseqBtn").onclick = () => {
     const entries = subjectSeqEntriesFromHits(scopeHits());
     if (!entries.length) return showNote("No sseq sequences in the current scope.");
     downloadText("subject-sequences.fasta", toFasta(entries), "text/x-fasta");
-  });
+  };
 
   const queryFastaStatus = document.getElementById("queryFastaStatus");
   const exportQueryFastaBtn = document.getElementById("exportQueryFastaBtn");
@@ -530,7 +543,7 @@ export function mountExplorer(container, data) {
   const exportSubjectFastaBtn = document.getElementById("exportSubjectFastaBtn");
   const exportCombinedBtn = document.getElementById("exportCombinedBtn");
 
-  exportQueryFastaBtn.addEventListener("click", () => {
+  exportQueryFastaBtn.onclick = () => {
     if (!queryFastaRecords) return showNote("Upload a query FASTA first.");
     const bucket = document.getElementById("queryFastaBucket").value;
     const perQ = perQuerySummary(data, thresholds);
@@ -539,18 +552,18 @@ export function mountExplorer(container, data) {
     if (!entries.length) return showNote("No matching sequences found in the uploaded query FASTA.");
     downloadText(`query-${bucket}.fasta`, toFasta(entries), "text/x-fasta");
     if (unmatched.length) showNote(`${unmatched.length} of ${ids.length} query IDs had no match in the uploaded FASTA.`);
-  });
+  };
 
-  exportSubjectFastaBtn.addEventListener("click", () => {
+  exportSubjectFastaBtn.onclick = () => {
     if (!subjectFastaRecords) return showNote("Upload a subject FASTA first.");
     const ids = [...new Set(scopeHits().map((h) => h.sseqid))];
     const { entries, unmatched } = matchedFastaEntries(subjectFastaRecords, ids);
     if (!entries.length) return showNote("No matching sequences found in the uploaded subject FASTA.");
     downloadText("subject-subset.fasta", toFasta(entries), "text/x-fasta");
     if (unmatched.length) showNote(`${unmatched.length} of ${ids.length} subject IDs had no match in the uploaded FASTA.`);
-  });
+  };
 
-  exportCombinedBtn.addEventListener("click", () => {
+  exportCombinedBtn.onclick = () => {
     if (!currentQseqid) return showNote("Select a query first.");
     const queryHits = filterHits(data.hits.filter((h) => h.qseqid === currentQseqid), thresholds);
 
@@ -578,22 +591,95 @@ export function mountExplorer(container, data) {
       return showNote("No sequences available — upload query/subject FASTA files or use a file with qseq/sseq columns.");
     }
     downloadText(`${currentQseqid}-combined.fasta`, toFasta(entries), "text/x-fasta");
-  });
+  };
 
-  document.getElementById("exportAccessionBtn").addEventListener("click", () => {
+  document.getElementById("exportAccessionBtn").onclick = () => {
     const ids = [...new Set(scopeHits().map((h) => h.sseqid))];
     if (!ids.length) return showNote("No hits in the current scope.");
     downloadText("accessions.txt", accessionListText(ids), "text/plain");
-  });
+  };
+
+  // --- taxonomy mapping (NCBI names.dmp) ---
+  const taxdumpStatus = document.getElementById("taxdumpStatus");
+  const taxdumpControls = document.getElementById("taxdumpControls");
+  const taxidSourceMode = document.getElementById("taxidSourceMode");
+  const taxidPatternRow = document.getElementById("taxidPatternRow");
+  const taxidPatternPreset = document.getElementById("taxidPatternPreset");
+  const taxidPatternCustom = document.getElementById("taxidPatternCustom");
+  const taxdumpPreviewEl = document.getElementById("taxdumpPreview");
+  const applyTaxdumpBtn = document.getElementById("applyTaxdumpBtn");
+  const clearTaxdumpBtn = document.getElementById("clearTaxdumpBtn");
+
+  function currentTaxonPattern() {
+    if (taxidPatternPreset.value === "dot") return { type: "delimiter", delimiter: "." };
+    if (taxidPatternPreset.value === "dash") return { type: "delimiter", delimiter: "-" };
+    return { type: "regex", source: taxidPatternCustom.value.trim() || "^(\\d+)" };
+  }
+  function currentTaxonSource() {
+    return taxidSourceMode.value === "pattern"
+      ? { mode: "pattern", pattern: currentTaxonPattern() }
+      : { mode: "staxids" };
+  }
+  function renderTaxdumpPreviewTable() {
+    if (!taxonMap) { taxdumpPreviewEl.innerHTML = ""; return; }
+    const rows = buildTaxonPreview(data.hits, taxonMap, currentTaxonSource(), 8);
+    taxdumpPreviewEl.innerHTML = !rows.length
+      ? "<div class=\"empty-note\">No hits to preview.</div>"
+      : `<div class="table-wrap"><table class="hit-table"><thead><tr><th>sseqid</th><th>taxon ID</th><th>resolves to</th></tr></thead><tbody>${
+        rows.map((r) => `<tr><td>${r.sseqid}</td><td class="num">${r.extractedIds.join(", ") || "—"}</td><td>${r.names.join("; ") || "no match"}</td></tr>`).join("")
+      }</tbody></table></div>`;
+  }
+
+  taxidSourceMode.onchange = () => {
+    taxidPatternRow.style.display = taxidSourceMode.value === "pattern" ? "" : "none";
+    renderTaxdumpPreviewTable();
+  };
+  taxidPatternPreset.onchange = () => {
+    taxidPatternCustom.style.display = taxidPatternPreset.value === "custom" ? "" : "none";
+    renderTaxdumpPreviewTable();
+  };
+  taxidPatternCustom.oninput = renderTaxdumpPreviewTable;
+
+  applyTaxdumpBtn.onclick = () => {
+    if (!taxonMap) return;
+    const { hits: newHits, filledCount } = enrichHitsWithTaxonomy(data.hits, taxonMap, currentTaxonSource());
+    data = {
+      meta: { ...data.meta, hasTaxonomy: newHits.some((h) => h.staxids || h.sscinames) },
+      hits: newHits,
+      queries: buildQueries(newHits),
+    };
+    updateTaxonFilterVisibility();
+    renderAcrossQueries();
+    if (currentQseqid) renderQuery(currentQseqid);
+    taxdumpStatus.textContent = `Loaded ${taxdumpFilename} — filled ${filledCount} hit${filledCount === 1 ? "" : "s"} missing a name.`;
+    clearTaxdumpBtn.style.display = "";
+  };
+
+  clearTaxdumpBtn.onclick = () => {
+    data = {
+      meta: { ...data.meta, hasTaxonomy: pristineHits.some((h) => h.staxids || h.sscinames) },
+      hits: pristineHits,
+      queries: buildQueries(pristineHits),
+    };
+    updateTaxonFilterVisibility();
+    renderAcrossQueries();
+    if (currentQseqid) renderQuery(currentQseqid);
+    clearTaxdumpBtn.style.display = "none";
+    taxdumpStatus.textContent = taxonMap
+      ? `Loaded ${taxdumpFilename} (${taxonMap.size} taxa) — not applied.`
+      : "No taxonomy mapping loaded.";
+  };
 
   readThresholds();
   renderAcrossQueries();
   if (data.queries.length) renderQuery(data.queries[0].qseqid);
 
   return {
+    // Returns the fresh handle from the new mountExplorer() call — callers must
+    // reassign their reference to it (this instance's own closures/DOM lookups
+    // become stale once mountExplorer() rebuilds `container`'s contents).
     setData(newData) {
-      data = newData;
-      mountExplorer(container, newData);
+      return mountExplorer(container, newData);
     },
     setReverseData(newReverseData) {
       reverseData = newReverseData;
@@ -612,6 +698,15 @@ export function mountExplorer(container, data) {
         ? `Loaded ${filename} (${records.length} sequences)`
         : "No subject FASTA loaded.";
       exportSubjectFastaBtn.disabled = !records;
+    },
+    setTaxonMap(map, filename) {
+      taxonMap = map;
+      taxdumpFilename = filename;
+      taxdumpStatus.textContent = `Loaded ${filename} (${map.size} taxa)`;
+      taxdumpControls.style.display = "";
+      taxidSourceMode.value = data.hits.some((h) => h.staxids) ? "staxids" : "pattern";
+      taxidPatternRow.style.display = taxidSourceMode.value === "pattern" ? "" : "none";
+      renderTaxdumpPreviewTable();
     },
   };
 }

@@ -103,6 +103,39 @@
         <div class="hint">Applies live to the per-query view, run-wide summary, and charts below.</div>
       </details>
 
+      <details class="sect" id="rowTaxdump">
+        <summary>Taxonomy mapping</summary>
+        <div class="hint">Fill in missing scientific/common names from an NCBI taxonomy dump.
+          <a href="https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz" target="_blank" rel="noopener">Download latest taxdump.tar.gz</a>
+        </div>
+        <button class="act" id="loadTaxdumpBtn">Upload names.dmp or taxdump.tar.gz…</button>
+        <div class="hint" id="taxdumpStatus">No taxonomy mapping loaded.</div>
+
+        <div id="taxdumpControls" style="display:none">
+          <div class="row"><label for="taxidSourceMode">Taxon ID source</label></div>
+          <select id="taxidSourceMode">
+            <option value="staxids">staxids column</option>
+            <option value="pattern">Extract from sseqid</option>
+          </select>
+
+          <div id="taxidPatternRow" style="display:none">
+            <div class="row"><label for="taxidPatternPreset">Pattern</label></div>
+            <select id="taxidPatternPreset">
+              <option value="dot">Number before first "."</option>
+              <option value="dash">Number before first "-"</option>
+              <option value="custom">Custom regex…</option>
+            </select>
+            <input type="text" id="taxidPatternCustom" placeholder="^(\d+)" style="display:none">
+          </div>
+
+          <div class="hint" style="margin-top:10px">Preview — verify before applying, especially for extracted IDs (a coincidental match to an unrelated real taxon is possible and won't look wrong):</div>
+          <div id="taxdumpPreview"></div>
+
+          <button class="act" id="applyTaxdumpBtn">Apply mapping to all hits</button>
+          <button class="act warn" id="clearTaxdumpBtn" style="display:none">Clear mapping</button>
+        </div>
+      </details>
+
       <details class="sect" id="rowRbh">
         <summary>RBH mode</summary>
         <button class="act" id="rbhLoadBtn">Load reverse file…</button>
@@ -219,6 +252,7 @@
 <input type="file" id="reverseFileInput" accept=".tsv,.tab,.txt,.blast,.m8,text/plain" style="display:none">
 <input type="file" id="queryFastaInput" accept=".fasta,.fa,.fna,.faa,.txt,text/plain" style="display:none">
 <input type="file" id="subjectFastaInput" accept=".fasta,.fa,.fna,.faa,.txt,text/plain" style="display:none">
+<input type="file" id="taxdumpInput" accept=".dmp,.tar.gz,.tgz,.gz,text/plain" style="display:none">
 <script type="module" src="src/app.js"></script>
 </body>
 </html>

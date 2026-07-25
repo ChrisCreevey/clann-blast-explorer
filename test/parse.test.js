@@ -12,6 +12,9 @@ import { defaultThresholds, passesThresholds, filterHits, computeQcov, classifyQ
 import { perQuerySummary, bestHits } from "../src/analysis/summary.js";
 import { taxonLabel } from "../src/render/taxonomy.js";
 import { computeRBH } from "../src/analysis/rbh.js";
+import {
+  parseTarEntries, parseNamesDmp, extractTaxidFromId, buildTaxonPreview, enrichHitsWithTaxonomy,
+} from "../src/parse/taxdump.js";
 import { toDelimited } from "../export/table-export.js";
 import {
   querySeqEntriesFromHits, subjectSeqEntriesFromHits, matchedFastaEntries, toFasta, accessionListText,
@@ -277,4 +280,87 @@ test("matchedFastaEntries: ID-matches against uploaded FASTA, tracks unmatched",
 test("toFasta / accessionListText: output formats", () => {
   assert.equal(toFasta([{ id: "x", seq: "ACGT" }]), ">x\nACGT\n");
   assert.equal(accessionListText(["a", "b"]), "a\nb\n");
+});
+
+test("parseNamesDmp: keeps scientific names and the best common name, skips synonyms", () => {
+  const text = [
+    "9606\t|\tHomo sapiens\t|\t\t|\tscientific name\t|",
+    "9606\t|\tman\t|\t\t|\tcommon name\t|",
+    "9606\t|\thuman\t|\t\t|\tgenbank common name\t|",
+    "9606\t|\tHomo sapiens Linnaeus, 1758\t|\t\t|\tsynonym\t|",
+    "562\t|\tEscherichia coli\t|\t\t|\tscientific name\t|",
+  ].join("\n");
+  const map = parseNamesDmp(text);
+  assert.equal(map.get("9606").sciName, "Homo sapiens");
+  assert.equal(map.get("9606").comName, "human"); // genbank common name preferred over plain common name
+  assert.equal(map.get("562").sciName, "Escherichia coli");
+  assert.equal(map.has("1"), false);
+});
+
+test("extractTaxidFromId: delimiter and regex patterns", () => {
+  assert.equal(extractTaxidFromId("9606.ENSP00000269305", { type: "delimiter", delimiter: "." }), "9606");
+  assert.equal(extractTaxidFromId("1307.5988-XYZ_00123", { type: "delimiter", delimiter: "-" }), null); // "1307.5988" isn't all-digit
+  assert.equal(extractTaxidFromId("1307-5988-XYZ", { type: "delimiter", delimiter: "-" }), "1307");
+  assert.equal(extractTaxidFromId("no-number-here", { type: "delimiter", delimiter: "-" }), null);
+  assert.equal(extractTaxidFromId("9606.ENSP00000269305", { type: "regex", source: "^(\\d+)" }), "9606");
+  assert.equal(extractTaxidFromId("ENSP00000269305", { type: "regex", source: "^(\\d+)" }), null);
+});
+
+test("buildTaxonPreview: resolves candidate taxon IDs per distinct sseqid, up to the limit", () => {
+  const taxonMap = new Map([["9606", { sciName: "Homo sapiens" }], ["562", { sciName: "Escherichia coli" }]]);
+  const hits = [
+    { qseqid: "q1", sseqid: "9606.PROT1" },
+    { qseqid: "q1", sseqid: "9606.PROT1" }, // duplicate sseqid — only counted once
+    { qseqid: "q2", sseqid: "562.PROT2" },
+    { qseqid: "q3", sseqid: "unknown.PROT3" },
+  ];
+  const rows = buildTaxonPreview(hits, taxonMap, { mode: "pattern", pattern: { type: "delimiter", delimiter: "." } }, 10);
+  assert.equal(rows.length, 3);
+  assert.deepEqual(rows[0].names, ["Homo sapiens"]);
+  assert.deepEqual(rows[2].names, []); // "unknown" isn't in the map
+});
+
+test("enrichHitsWithTaxonomy: backfills sscinames/scomnames from staxids, never overwrites existing names", () => {
+  const taxonMap = new Map([["9606", { sciName: "Homo sapiens", comName: "human" }]]);
+  const hits = [
+    { qseqid: "q1", sseqid: "s1", staxids: ["9606"] },
+    { qseqid: "q2", sseqid: "s2", staxids: ["1"] }, // not in the map — left alone
+    { qseqid: "q3", sseqid: "s3", sscinames: "Already set" }, // has a name — untouched even with staxids
+  ];
+  const { hits: enriched, filledCount } = enrichHitsWithTaxonomy(hits, taxonMap, { mode: "staxids" });
+  assert.equal(filledCount, 1);
+  assert.equal(enriched[0].sscinames, "Homo sapiens");
+  assert.equal(enriched[0].scomnames, "human");
+  assert.equal(enriched[1].sscinames, undefined);
+  assert.equal(enriched[2].sscinames, "Already set");
+});
+
+test("enrichHitsWithTaxonomy: pattern-extraction source works the same way as staxids", () => {
+  const taxonMap = new Map([["9606", { sciName: "Homo sapiens" }]]);
+  const hits = [{ qseqid: "q1", sseqid: "9606.PROT1" }];
+  const source = { mode: "pattern", pattern: { type: "delimiter", delimiter: "." } };
+  const { hits: enriched, filledCount } = enrichHitsWithTaxonomy(hits, taxonMap, source);
+  assert.equal(filledCount, 1);
+  assert.equal(enriched[0].sscinames, "Homo sapiens");
+  assert.deepEqual(enriched[0].staxids, ["9606"]);
+});
+
+test("parseTarEntries: walks fixed 512-byte tar headers to find files by name", () => {
+  // Build a minimal single-file tar: one 512-byte header + one 512-byte content block.
+  const header = new Uint8Array(512);
+  const name = "names.dmp";
+  for (let i = 0; i < name.length; i++) header[i] = name.charCodeAt(i);
+  const sizeOctal = "14".padStart(11, "0") + "\0"; // 12 (decimal) bytes of content, as octal ASCII ("14" octal = 12 decimal)
+  for (let i = 0; i < sizeOctal.length; i++) header[124 + i] = sizeOctal.charCodeAt(i);
+  const content = new TextEncoder().encode("hello dmp!\n\n".padEnd(12, "\0")).slice(0, 12);
+  const bytes = new Uint8Array(512 + 512);
+  bytes.set(header, 0);
+  bytes.set(content, 512);
+
+  const entries = parseTarEntries(bytes);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].name, "names.dmp");
+  assert.equal(entries[0].size, 12);
+  const text = new TextDecoder().decode(bytes.subarray(entries[0].start, entries[0].start + entries[0].size));
+  assert.equal(text, "hello dmp!\n\n");
 });

@@ -12,7 +12,8 @@ export class ColumnMappingNeeded extends Error {
   }
 }
 
-function buildQueries(hits) {
+/** Derive the unique-qseqid query list (hit count + best hit) from a hits array. */
+export function buildQueries(hits) {
   const byQuery = new Map();
   for (const hit of hits) {
     const id = hit.qseqid;
