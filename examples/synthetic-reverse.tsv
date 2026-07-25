@@ -1,4 +1,5 @@
 # SYNTHETIC EXAMPLE — RBH reverse run (species B queries vs species A database)
+qseqid	sseqid	pident	length	mismatch	gapopen	qstart	qend	sstart	send	evalue	bitscore
 B_geneA	geneA	98.0	300	6	0	1	300	1	300	0.0	560
 B_geneB	geneB	96.5	250	8	0	1	250	1	250	1e-130	460
 B_geneX	geneA	55.0	280	100	3	1	280	1	276	1e-40	160

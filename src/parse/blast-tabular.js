@@ -156,17 +156,16 @@ export function parseBlastTabular(text, opts = {}) {
     }
   }
   if (!columns) {
-    if (firstCols.length === STANDARD_12.length) {
-      columns = STANDARD_12;
-    } else if (firstCols.length > STANDARD_12.length) {
-      columns = STANDARD_12.concat(
-        new Array(firstCols.length - STANDARD_12.length).fill(null).map((_, i) => `extra${i + 1}`)
-      );
-    } else {
-      throw new Error(
-        `Column count (${firstCols.length}) is fewer than the standard 12-column format and no "# Fields:" line was found. Manual column mapping is needed.`
-      );
-    }
+    // No "# Fields:" line and no recognisable header row — never guess the
+    // column order silently, even when the count happens to match the
+    // standard 12: a custom `-outfmt "6 ..."` order can easily still have
+    // exactly 12 columns in a different arrangement. Manual confirmation
+    // (prefilled with this same positional guess) is always required here.
+    throw new Error(
+      firstCols.length < STANDARD_12.length
+        ? `Column count (${firstCols.length}) is fewer than the standard 12-column format and no header was found. Manual column mapping is needed.`
+        : `No column header found (no "# Fields:" line, no recognised header row). Manual column mapping is needed to confirm column order.`
+    );
   } else if (columns.length !== firstCols.length) {
     throw new Error(
       `Declared column count (${columns.length}) does not match data (${firstCols.length} columns per row). Manual column mapping is needed.`

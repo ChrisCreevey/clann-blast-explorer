@@ -20,8 +20,12 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(path.join(__dirname, "fixtures", name), "utf8");
 
-test("standard -outfmt 6 (headerless, 12 columns)", () => {
-  const data = parse(fixture("outfmt6.tsv"), { filename: "outfmt6.tsv" });
+test("standard -outfmt 6 (headerless, 12 columns): always needs manual mapping, even at the standard count", () => {
+  // No "# Fields:" line and no header row — a custom -outfmt order could still
+  // have exactly 12 columns, so this must never be guessed silently.
+  assert.throws(() => parse(fixture("outfmt6.tsv"), { filename: "outfmt6.tsv" }), ColumnMappingNeeded);
+
+  const data = parse(fixture("outfmt6.tsv"), { filename: "outfmt6.tsv", columns: STANDARD_12 });
   assert.equal(data.meta.format, "blast-outfmt6");
   assert.equal(data.hits.length, 3);
   assert.equal(data.queries.length, 2);
@@ -41,8 +45,10 @@ test("-outfmt 7 with '# Fields:' line and taxonomy columns", () => {
   assert.equal(data.hits[0].sscinames, "Homo sapiens");
 });
 
-test("DIAMOND default tabular output (same 12-column layout)", () => {
-  const data = parse(fixture("diamond.tsv"), { filename: "diamond.tsv" });
+test("DIAMOND default tabular output (same 12-column layout, also needs manual mapping)", () => {
+  assert.throws(() => parse(fixture("diamond.tsv"), { filename: "diamond.tsv" }), ColumnMappingNeeded);
+
+  const data = parse(fixture("diamond.tsv"), { filename: "diamond.tsv", columns: STANDARD_12 });
   assert.equal(data.hits.length, 2);
   assert.equal(data.hits[0].qseqid, "q1");
   assert.equal(data.hits[0].pident, 99.0);
@@ -168,7 +174,7 @@ test("classifyQuery: hit / weak / none", () => {
 });
 
 test("perQuerySummary: flags queries against active thresholds", () => {
-  const data = parse(fixture("outfmt6.tsv"), { filename: "outfmt6.tsv" });
+  const data = parse(fixture("outfmt6.tsv"), { filename: "outfmt6.tsv", columns: STANDARD_12 });
   const rows = perQuerySummary(data, defaultThresholds());
   assert.equal(rows.find((r) => r.qseqid === "query1").flag, "hit");
   const strict = perQuerySummary(data, { ...defaultThresholds(), minPident: 99 });
@@ -191,7 +197,7 @@ test("bestHits: returns every hit tied for the top bit score, not just the first
 
 test("perQuerySummary: bestTied lists every tied top-bitscore hit for that query", () => {
   const text = "q1\ta\t99\t100\t0\t0\t1\t100\t1\t100\t1e-50\t300\nq1\tb\t95\t100\t0\t0\t1\t100\t1\t100\t1e-45\t300\n";
-  const data = parse(text, { filename: "tied.tsv" });
+  const data = parse(text, { filename: "tied.tsv", columns: STANDARD_12 });
   const rows = perQuerySummary(data, defaultThresholds());
   const q1 = rows.find((r) => r.qseqid === "q1");
   assert.equal(q1.bestTied.length, 2);
@@ -226,8 +232,8 @@ test("computeRBH: reciprocal / one-way / no-hit classification", () => {
 });
 
 test("computeRBH: a query with no hit in either direction is classified 'no-hit'", () => {
-  const forward = parse("q1\ts1\t99\t100\t0\t0\t1\t100\t1\t100\t1e-50\t200\nq2\ts2\t1\t1\t1\t1\t1\t1\t1\t1\t1\t1\n", { filename: "f.tsv" });
-  const reverse = parse("s1\tq1\t99\t100\t0\t0\t1\t100\t1\t100\t1e-50\t200\n", { filename: "r.tsv" });
+  const forward = parse("q1\ts1\t99\t100\t0\t0\t1\t100\t1\t100\t1e-50\t200\nq2\ts2\t1\t1\t1\t1\t1\t1\t1\t1\t1\t1\n", { filename: "f.tsv", columns: STANDARD_12 });
+  const reverse = parse("s1\tq1\t99\t100\t0\t0\t1\t100\t1\t100\t1e-50\t200\n", { filename: "r.tsv", columns: STANDARD_12 });
   const { classification } = computeRBH(forward, reverse, { ...defaultThresholds(), minBitscore: 50 });
   // q2's only hit has bitscore 1, below the threshold — no hit passes, so it's 'no-hit', not 'one-way'.
   assert.equal(classification.find((c) => c.qseqid === "q2").status, "no-hit");
