@@ -148,6 +148,9 @@ table.hit-table td a:hover{text-decoration:underline}
 .best-hit-card dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:12.5px}
 .best-hit-card dt{color:var(--muted)}
 .best-hit-card dd{margin:0;font-family:var(--font-mono)}
+.best-hit-card .tied-best{padding:8px 0;border-top:1px solid var(--line)}
+.best-hit-card .tied-best:first-child{padding-top:0;border-top:none}
+.best-hit-card .tied-best>b{display:block;margin-bottom:4px;font-size:12.5px}
 .hit-span-svg{width:100%;height:auto;display:block}
 .hit-span-svg .qbar{fill:var(--line)}
 .hit-span-svg .hsp{fill:var(--accent);opacity:.75}

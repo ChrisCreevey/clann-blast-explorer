@@ -4,7 +4,7 @@
 // Phase 2: filters (sidebar), per-query summary table, distribution charts,
 // identity-vs-coverage scatter, taxonomy chart — all live against the active thresholds.
 
-import { querySummary, globalSummary, perQuerySummary } from "./analysis/summary.js";
+import { querySummary, globalSummary, perQuerySummary, bestHits } from "./analysis/summary.js";
 import { defaultThresholds, filterHits, computeQcov } from "./analysis/filters.js";
 import { computeRBH } from "./analysis/rbh.js";
 import { renderHitTable } from "./render/hit-table.js";
@@ -29,6 +29,17 @@ function fmtNum(v) {
 }
 
 const FLAG_LABEL = { hit: "hit", weak: "weak", none: "no hit" };
+
+function bestHitDlRows(h) {
+  return [
+    ["Subject", h.sseqid],
+    ["% identity", fmtNum(h.pident)],
+    ["Alignment length", fmtNum(h.length)],
+    ["E-value", fmtNum(h.evalue)],
+    ["Bit score", fmtNum(h.bitscore)],
+    h.stitle ? ["Title", h.stitle] : null,
+  ].filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+}
 
 export function mountExplorer(container, data) {
   const querySelect = document.getElementById("querySelect");
@@ -72,7 +83,7 @@ export function mountExplorer(container, data) {
 
   const bestHitCard = document.createElement("div");
   bestHitCard.className = "card best-hit-card";
-  bestHitCard.innerHTML = "<h3>Best hit</h3><dl id=\"bestHitDl\"></dl>";
+  bestHitCard.innerHTML = "<h3 id=\"bestHitHeading\">Best hit</h3><div id=\"bestHitMount\"></div>";
   container.appendChild(bestHitCard);
 
   const spanCard = document.createElement("div");
@@ -185,8 +196,14 @@ export function mountExplorer(container, data) {
     const tbody = document.createElement("tbody");
     for (const r of rows) {
       const tr = document.createElement("tr");
+      const tieCount = r.bestTied.length;
+      const sseqidCell = tieCount === 0
+        ? "—"
+        : tieCount === 1
+          ? r.bestTied[0].sseqid
+          : `<span title="Tied at the top bit score: ${r.bestTied.map((h) => h.sseqid).join(", ")}">${r.bestTied[0].sseqid} (+${tieCount - 1} tied)</span>`;
       tr.innerHTML = `<td>${r.qseqid}</td><td class="num">${r.hitCount}</td><td class="num">${r.passingCount}</td>` +
-        `<td>${r.best ? r.best.sseqid : "—"}</td>` +
+        `<td>${sseqidCell}</td>` +
         `<td class="num">${r.best ? fmtNum(r.best.pident) : "—"}</td>` +
         `<td class="num">${r.best ? fmtNum(r.best.evalue) : "—"}</td>` +
         `<td><span class="flag-badge flag-${r.flag}">${FLAG_LABEL[r.flag]}</span></td>`;
@@ -316,24 +333,26 @@ export function mountExplorer(container, data) {
       if (a.evalue !== undefined && b.evalue !== undefined) return a.evalue - b.evalue;
       return 0;
     });
-    const best = hits[0] || (summary && summary.best);
+    const tiedBest = bestHits(hits);
+    const best = tiedBest[0] || (summary && summary.best);
 
     queryMeta.textContent = summary
       ? `${hits.length} of ${summary.hitCount} hit${summary.hitCount === 1 ? "" : "s"} pass current filters`
       : "";
 
-    const dl = document.getElementById("bestHitDl");
-    if (best) {
-      dl.innerHTML = [
-        ["Subject", best.sseqid],
-        ["% identity", fmtNum(best.pident)],
-        ["Alignment length", fmtNum(best.length)],
-        ["E-value", fmtNum(best.evalue)],
-        ["Bit score", fmtNum(best.bitscore)],
-        best.stitle ? ["Title", best.stitle] : null,
-      ].filter(Boolean).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+    const bestHeading = document.getElementById("bestHitHeading");
+    const mount = document.getElementById("bestHitMount");
+    if (!tiedBest.length) {
+      bestHeading.textContent = "Best hit";
+      mount.innerHTML = "<dl><dt>—</dt><dd>No hits pass the current filters</dd></dl>";
+    } else if (tiedBest.length === 1) {
+      bestHeading.textContent = "Best hit";
+      mount.innerHTML = `<dl>${bestHitDlRows(best)}</dl>`;
     } else {
-      dl.innerHTML = "<dt>—</dt><dd>No hits pass the current filters</dd>";
+      bestHeading.textContent = `Best hit — ${tiedBest.length}-way tie on bit score`;
+      mount.innerHTML = tiedBest
+        .map((h) => `<div class="tied-best"><b>${h.sseqid}</b><dl>${bestHitDlRows(h)}</dl></div>`)
+        .join("");
     }
 
     const tableMount = document.getElementById("hitTableMount");

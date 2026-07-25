@@ -3,9 +3,21 @@
 import { filterHits, classifyQuery } from "./filters.js";
 
 /**
- * Per-query summary rows under the active thresholds: hit count, best hit
+ * All hits tied for the top bit score in `hits` (length 1 when there's a
+ * single clear best, longer when several hits share the same top score —
+ * "best hit" is otherwise just whichever tied hit happens to appear first).
+ */
+export function bestHits(hits) {
+  if (!hits.length) return [];
+  const maxBitscore = Math.max(...hits.map((h) => h.bitscore ?? -Infinity));
+  return hits.filter((h) => (h.bitscore ?? -Infinity) === maxBitscore);
+}
+
+/**
+ * Per-query summary rows under the active thresholds: hit count, best hit(s)
  * (both unfiltered and filtered), and a hit/weak/none flag. Used by the
- * across-queries summary table.
+ * across-queries summary table. `bestTied` holds every hit tied for the top
+ * bit score; `best` is bestTied[0], kept for call sites that just want one.
  */
 export function perQuerySummary(data, thresholds) {
   const filtered = filterHits(data.hits, thresholds);
@@ -17,15 +29,13 @@ export function perQuerySummary(data, thresholds) {
   return data.queries.map((q) => {
     const allHits = data.hits.filter((h) => h.qseqid === q.qseqid);
     const passingHits = filteredByQuery.get(q.qseqid) || [];
-    const bestPassing = passingHits.reduce(
-      (best, h) => (!best || (h.bitscore ?? -Infinity) > (best.bitscore ?? -Infinity) ? h : best),
-      null
-    );
+    const bestTied = bestHits(passingHits);
     return {
       qseqid: q.qseqid,
       hitCount: allHits.length,
       passingCount: passingHits.length,
-      best: bestPassing || q.best,
+      best: bestTied[0] || q.best,
+      bestTied: bestTied.length ? bestTied : (q.best ? [q.best] : []),
       flag: classifyQuery(allHits, passingHits),
     };
   });

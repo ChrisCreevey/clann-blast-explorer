@@ -8,7 +8,7 @@ import { parse, ColumnMappingNeeded } from "../src/parse/index.js";
 import { parseFasta, matchFastaIds, toFastaText } from "../src/parse/fasta.js";
 import { classifyAccession, accessionLinkUrl } from "../src/parse/accession.js";
 import { defaultThresholds, passesThresholds, filterHits, computeQcov, classifyQuery } from "../src/analysis/filters.js";
-import { perQuerySummary } from "../src/analysis/summary.js";
+import { perQuerySummary, bestHits } from "../src/analysis/summary.js";
 import { taxonLabel } from "../src/render/taxonomy.js";
 import { computeRBH } from "../src/analysis/rbh.js";
 import { toDelimited } from "../export/table-export.js";
@@ -142,6 +142,29 @@ test("perQuerySummary: flags queries against active thresholds", () => {
   const strict = perQuerySummary(data, { ...defaultThresholds(), minPident: 99 });
   const q1Strict = strict.find((r) => r.qseqid === "query1");
   assert.equal(q1Strict.flag, "weak"); // has hits, but none reach 99% identity
+});
+
+test("bestHits: returns every hit tied for the top bit score, not just the first", () => {
+  const hits = [
+    { qseqid: "q1", sseqid: "a", bitscore: 300 },
+    { qseqid: "q1", sseqid: "b", bitscore: 300 },
+    { qseqid: "q1", sseqid: "c", bitscore: 250 },
+  ];
+  const tied = bestHits(hits);
+  assert.equal(tied.length, 2);
+  assert.deepEqual(tied.map((h) => h.sseqid), ["a", "b"]);
+  assert.deepEqual(bestHits([]), []);
+  assert.equal(bestHits([{ qseqid: "q2", sseqid: "x", bitscore: 100 }]).length, 1);
+});
+
+test("perQuerySummary: bestTied lists every tied top-bitscore hit for that query", () => {
+  const text = "q1\ta\t99\t100\t0\t0\t1\t100\t1\t100\t1e-50\t300\nq1\tb\t95\t100\t0\t0\t1\t100\t1\t100\t1e-45\t300\n";
+  const data = parse(text, { filename: "tied.tsv" });
+  const rows = perQuerySummary(data, defaultThresholds());
+  const q1 = rows.find((r) => r.qseqid === "q1");
+  assert.equal(q1.bestTied.length, 2);
+  assert.deepEqual(q1.bestTied.map((h) => h.sseqid), ["a", "b"]);
+  assert.equal(q1.best.sseqid, "a"); // .best is just bestTied[0], for callers that want a single hit
 });
 
 test("taxonLabel: prefers sscinames, falls back to stitle bracket parsing", () => {
