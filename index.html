@@ -96,6 +96,7 @@
         <input type="text" id="fTaxonInclude" placeholder="comma-separated">
         <div class="row" id="rowTaxonExclude"><label for="fTaxonExclude">Exclude taxa</label></div>
         <input type="text" id="fTaxonExclude" placeholder="comma-separated">
+        <button class="act" id="fUndo" disabled>Undo ⤺</button>
         <button class="act warn" id="fReset">Reset filters</button>
         <div class="hint">Applies live to the per-query view, run-wide summary, and charts below.</div>
       </details>
@@ -179,10 +180,10 @@
           <p>No. Everything runs client-side in your browser, so your BLAST results never leave your computer.</p>
 
           <h3>Can it compute reciprocal best hits (RBH)?</h3>
-          <p>Yes. Load a forward and reverse BLAST run and it classifies each query as reciprocal, one-way, or no hit under the active thresholds. (Coming in Phase 3.)</p>
+          <p>Yes. Load a forward and reverse BLAST run in the RBH mode panel and it classifies each query as reciprocal, one-way, or no hit under the active thresholds, with a pair table and forward-vs-reverse identity scatter.</p>
 
           <h3>Can I export sequences for alignment?</h3>
-          <p>Yes, when <code>qseq</code>/<code>sseq</code> columns are present, or by uploading the original query/subject FASTA for ID-matched export of the current filtered selection. (Coming in Phase 4.)</p>
+          <p>Yes, when <code>qseq</code>/<code>sseq</code> columns are present, or by uploading the original query and/or subject FASTA for ID-matched export of the current filtered selection — including a combined query+hits FASTA ready for an alignment tool, and an accession list for NCBI Batch Entrez when sequences aren't available locally.</p>
 
           <h3>Does it run BLAST for me?</h3>
           <p>No. It does not run BLAST or DIAMOND searches, does not fetch sequences from NCBI/UniProt/EBI automatically, and does not build alignments or trees itself — it stages data for tools that do, including <a href="https://github.com/ChrisCreevey/clann-tree-viewer" target="_blank" rel="noopener">Clann Tree Viewer</a>.</p>

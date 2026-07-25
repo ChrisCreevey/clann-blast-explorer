@@ -46,6 +46,7 @@ export function mountExplorer(container, data) {
     taxonExclude: document.getElementById("fTaxonExclude"),
   };
   const resetBtn = document.getElementById("fReset");
+  document.getElementById("fUndo").disabled = true;
   const rowTaxonInclude = document.getElementById("rowTaxonInclude");
   const rowTaxonExclude = document.getElementById("rowTaxonExclude");
   const taxonIncludeInput = filterInputs.taxonInclude;
@@ -57,6 +58,7 @@ export function mountExplorer(container, data) {
   });
 
   let thresholds = defaultThresholds();
+  let filterHistory = []; // previous thresholds, for Undo
   let reverseData = null;
   let currentQseqid = null;
   let queryFastaRecords = null;
@@ -348,28 +350,52 @@ export function mountExplorer(container, data) {
     .join("");
   querySelect.onchange = () => renderQuery(querySelect.value);
 
+  const undoBtn = document.getElementById("fUndo");
+
+  function applyThresholdsToInputs(t) {
+    filterInputs.minPident.value = t.minPident;
+    filterInputs.maxEvalue.value = t.maxEvalue === null ? "" : t.maxEvalue;
+    filterInputs.minBitscore.value = t.minBitscore;
+    filterInputs.minLength.value = t.minLength;
+    filterInputs.minQcov.value = t.minQcov;
+    filterInputs.excludeSelfHits.checked = t.excludeSelfHits;
+    filterInputs.topNPerQuery.value = t.topNPerQuery;
+    filterInputs.taxonInclude.value = t.taxonInclude;
+    filterInputs.taxonExclude.value = t.taxonExclude;
+  }
+
+  function refreshAll() {
+    renderAcrossQueries();
+    if (querySelect.value) renderQuery(querySelect.value);
+  }
+
+  function pushHistory() {
+    filterHistory.push(thresholds);
+    if (filterHistory.length > 20) filterHistory.shift();
+    undoBtn.disabled = false;
+  }
+
   Object.values(filterInputs).forEach((el) => {
     if (!el) return;
     el.addEventListener("input", () => {
+      pushHistory();
       readThresholds();
-      renderAcrossQueries();
-      if (querySelect.value) renderQuery(querySelect.value);
+      refreshAll();
     });
   });
   resetBtn.addEventListener("click", () => {
+    pushHistory();
     const d = defaultThresholds();
-    filterInputs.minPident.value = d.minPident;
-    filterInputs.maxEvalue.value = "";
-    filterInputs.minBitscore.value = d.minBitscore;
-    filterInputs.minLength.value = d.minLength;
-    filterInputs.minQcov.value = d.minQcov;
-    filterInputs.excludeSelfHits.checked = d.excludeSelfHits;
-    filterInputs.topNPerQuery.value = d.topNPerQuery;
-    filterInputs.taxonInclude.value = "";
-    filterInputs.taxonExclude.value = "";
+    applyThresholdsToInputs(d);
     readThresholds();
-    renderAcrossQueries();
-    if (querySelect.value) renderQuery(querySelect.value);
+    refreshAll();
+  });
+  undoBtn.addEventListener("click", () => {
+    if (!filterHistory.length) return;
+    thresholds = filterHistory.pop();
+    applyThresholdsToInputs(thresholds);
+    undoBtn.disabled = filterHistory.length === 0;
+    refreshAll();
   });
   ["chartMetric", "chartScope"].forEach((id) => document.getElementById(id).addEventListener("change", renderCharts));
   document.getElementById("scatterColorBy").addEventListener("change", renderScatterChart);

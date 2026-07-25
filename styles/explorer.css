@@ -177,3 +177,13 @@ table.hit-table td a:hover{text-decoration:underline}
 .flag-badge.flag-weak{background:color-mix(in srgb, var(--amber-500) 25%, transparent);color:var(--amber-500)}
 .flag-badge.flag-none{background:color-mix(in srgb, var(--warn) 25%, transparent);color:var(--warn)}
 #perQueryMount table.hit-table tbody tr{cursor:pointer}
+
+/* ---- responsive (narrow viewports: stack sidebar above main content) ---- */
+@media (max-width: 760px){
+  main{flex-direction:column;overflow:auto}
+  #side{width:100% !important;max-height:60vh;border-right:none;border-bottom:1px solid var(--line)}
+  #sideResize{display:none}
+  #wrap{overflow:visible;min-height:60vh}
+  header{flex-wrap:wrap;row-gap:6px}
+  header .title{max-width:100%}
+}

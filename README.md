@@ -42,7 +42,7 @@ Building in phases (see `clann-blast-explorer-BUILD-BRIEF.md`):
 - [x] **Phase 2** — across-queries summary, filtering, distribution charts, taxonomy chart
 - [x] **Phase 3** — RBH mode
 - [x] **Phase 4** — FASTA integration and export
-- [ ] **Phase 5** — polish and parity with the tree viewer
+- [x] **Phase 5** — polish and parity with the tree viewer
 
 ## Outstanding placeholders (see build brief §9)
 
