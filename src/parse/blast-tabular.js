@@ -57,6 +57,53 @@ export function parseFieldsLine(line) {
 }
 
 /**
+ * Recognise a plain, uncommented header row (no leading '#'), e.g. one added
+ * by a wrapper script: "qseqid\tsseqid\tpident\t...". Distinct from -outfmt 7's
+ * "# Fields:" line, and distinct from headerless -outfmt 6 data.
+ */
+const HEADER_NAME_MAP = {
+  qseqid: "qseqid", queryid: "qseqid", query: "qseqid", queryacc: "qseqid", queryaccver: "qseqid", querygi: "qseqid",
+  sseqid: "sseqid", subjectid: "sseqid", subject: "sseqid", subjectacc: "sseqid", subjectaccver: "sseqid", subjectgi: "sseqid",
+  pident: "pident", identity: "pident", pctidentity: "pident", percentidentity: "pident",
+  length: "length", alignmentlength: "length", alnlen: "length", alnlength: "length",
+  mismatch: "mismatch", mismatches: "mismatch",
+  gapopen: "gapopen", gapopens: "gapopen",
+  qstart: "qstart", querystart: "qstart",
+  qend: "qend", queryend: "qend",
+  sstart: "sstart", subjectstart: "sstart",
+  send: "send", subjectend: "send",
+  evalue: "evalue", expect: "evalue",
+  bitscore: "bitscore", score: "bitscore",
+  qlen: "qlen", querylength: "qlen",
+  slen: "slen", subjectlength: "slen",
+  staxids: "staxids", subjecttaxids: "staxids", taxid: "staxids", taxids: "staxids",
+  sscinames: "sscinames", subjectscinames: "sscinames", scientificname: "sscinames",
+  scomnames: "scomnames", subjectcomnames: "scomnames",
+  sskingdoms: "sskingdoms", subjectkingdoms: "sskingdoms",
+  qcovs: "qcovs", qcovhsp: "qcovhsp",
+  stitle: "stitle", subjecttitle: "stitle", title: "stitle",
+  qseq: "qseq", queryseq: "qseq",
+  sseq: "sseq", subjectseq: "sseq",
+};
+
+function normalizeHeaderToken(s) {
+  return s.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Detect whether `cols` (the raw first data-line cells) is actually a plain
+ * header row rather than data. Requires: no cell parses as a number, and most
+ * cells match a known BLAST/DIAMOND column name (allowing unrecognised extras).
+ */
+export function detectPlainHeaderRow(cols) {
+  if (cols.some((c) => c.trim() !== "" && !Number.isNaN(Number(c.trim())))) return null;
+  const mapped = cols.map((c) => HEADER_NAME_MAP[normalizeHeaderToken(c)] || null);
+  const matched = mapped.filter(Boolean).length;
+  if (matched === 0 || matched / cols.length < 0.7) return null;
+  return mapped.map((m, i) => m || `extra${i + 1}`);
+}
+
+/**
  * Detect and parse BLAST outfmt 6/7 or DIAMOND tabular text.
  * Returns { format, columns, hits, warnings } or throws with a descriptive message.
  */
@@ -84,7 +131,18 @@ export function parseBlastTabular(text, opts = {}) {
     throw new Error("No data rows found (only comments/blank lines).");
   }
 
-  const firstCols = dataLines[0].split("\t");
+  let firstCols = dataLines[0].split("\t");
+  let sawPlainHeader = false;
+  if (!columns) {
+    const headerCols = detectPlainHeaderRow(firstCols);
+    if (headerCols) {
+      columns = headerCols;
+      sawPlainHeader = true;
+      dataLines.shift();
+      if (dataLines.length === 0) throw new Error("No data rows found after the header row.");
+      firstCols = dataLines[0].split("\t");
+    }
+  }
   if (!columns) {
     if (firstCols.length === STANDARD_12.length) {
       columns = STANDARD_12;
@@ -105,7 +163,7 @@ export function parseBlastTabular(text, opts = {}) {
 
   const hits = dataLines.map((line) => rowToHit(columns, line.split("\t")));
 
-  const ambiguous = !sawFieldsComment && !validateSample(hits);
+  const ambiguous = !sawFieldsComment && !sawPlainHeader && !validateSample(hits);
   if (ambiguous) {
     throw new Error(
       "Column values don't look like standard BLAST output (pident should be 0-100, evalue should be numeric). Manual column mapping is needed."

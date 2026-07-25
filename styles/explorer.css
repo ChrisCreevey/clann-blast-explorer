@@ -135,6 +135,9 @@ table.hit-table th.sorted::after{content:" ▾"}
 table.hit-table th.sorted.asc::after{content:" ▴"}
 table.hit-table tbody tr:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}
 table.hit-table td.num{font-family:var(--font-mono);text-align:right}
+table.hit-table td[title]{cursor:help;border-bottom:1px dotted var(--muted)}
+table.hit-table td a{color:var(--accent);text-decoration:none}
+table.hit-table td a:hover{text-decoration:underline}
 .table-wrap{overflow:auto;max-height:420px}
 .best-hit-card dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:12.5px}
 .best-hit-card dt{color:var(--muted)}

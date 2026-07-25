@@ -6,6 +6,7 @@ import path from "node:path";
 
 import { parse, ColumnMappingNeeded } from "../src/parse/index.js";
 import { parseFasta, matchFastaIds, toFastaText } from "../src/parse/fasta.js";
+import { classifyAccession, accessionLinkUrl } from "../src/parse/accession.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(path.join(__dirname, "fixtures", name), "utf8");
@@ -47,6 +48,28 @@ test("files with qseq/sseq columns set hasSequences", () => {
 
 test("malformed/ambiguous column count triggers mapping, not a crash", () => {
   assert.throws(() => parse(fixture("ambiguous.tsv"), { filename: "ambiguous.tsv" }), ColumnMappingNeeded);
+});
+
+test("plain uncommented header row is detected and used for column mapping", () => {
+  const data = parse(fixture("plain-header.tsv"), { filename: "plain-header.tsv" });
+  assert.equal(data.hits.length, 2);
+  assert.equal(data.hits[0].qseqid, "query1");
+  assert.equal(data.hits[0].sseqid, "sbjct_A");
+  assert.equal(typeof data.hits[0].pident, "number");
+  assert.equal(data.queries.length, 2);
+});
+
+test("accession pattern recognition: public accessions link out, local IDs don't", () => {
+  assert.equal(classifyAccession("NP_001234567.1").db, "ncbi");
+  assert.equal(classifyAccession("AAB12345.1").db, "ncbi");
+  assert.equal(classifyAccession("AF123456.1").db, "ncbi");
+  assert.equal(classifyAccession("P69905").db, "uniprot");
+  assert.equal(classifyAccession("286604.5-LCADKAAL_01459"), null); // Prokka-style local locus tag
+  assert.equal(classifyAccession("contig_42_scaffold"), null);
+
+  assert.ok(accessionLinkUrl("P69905").includes("uniprot.org"));
+  assert.ok(accessionLinkUrl("NP_001234567.1").includes("ncbi.nlm.nih.gov/protein"));
+  assert.equal(accessionLinkUrl("286604.5-LCADKAAL_01459"), null);
 });
 
 test("FASTA parsing and ID matching: exact, version-suffix, duplicates", () => {

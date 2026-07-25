@@ -1,5 +1,7 @@
 // hit-table.js — sortable hit table for a single query's ranked hits.
 
+import { accessionLinkUrl } from "../parse/accession.js";
+
 const NUMERIC = new Set([
   "pident", "length", "mismatch", "gapopen", "qstart", "qend", "sstart", "send",
   "evalue", "bitscore", "qlen", "slen", "qcovs", "qcovhsp",
@@ -66,7 +68,22 @@ export function renderHitTable(container, hits, opts = {}) {
       for (const col of cols) {
         const td = document.createElement("td");
         if (NUMERIC.has(col)) td.className = "num";
-        td.textContent = fmt(hit[col]);
+        if (col === "sseqid") {
+          const url = accessionLinkUrl(hit.sseqid);
+          if (url) {
+            const a = document.createElement("a");
+            a.href = url;
+            a.target = "_blank";
+            a.rel = "noopener";
+            a.textContent = fmt(hit.sseqid);
+            td.appendChild(a);
+          } else {
+            td.textContent = fmt(hit.sseqid);
+            td.title = "Doesn't match a recognised public accession pattern (likely a local/assembly-specific identifier)";
+          }
+        } else {
+          td.textContent = fmt(hit[col]);
+        }
         tr.appendChild(td);
       }
       tbody.appendChild(tr);
