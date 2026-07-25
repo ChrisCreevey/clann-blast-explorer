@@ -122,3 +122,37 @@ export function renderScatter(container, points, opts = {}) {
     container.appendChild(legend);
   }
 }
+
+/**
+ * Render a small horizontal bar chart from [label, count] entries, each with
+ * its own colour (opts.colors: label -> CSS colour). Used for the RBH
+ * reciprocal/one-way/no-hit breakdown.
+ */
+export function renderCategoryBars(container, entries, opts = {}) {
+  if (!entries.length) return emptyNote(container, "No data.");
+
+  const width = 460, rowH = 24, pad = 8, labelW = 110;
+  const height = pad * 2 + entries.length * rowH;
+  const maxCount = Math.max(...entries.map(([, c]) => c)) || 1;
+  const barAreaW = width - labelW - pad * 2;
+
+  const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, class: "chart-svg category-bars" });
+  entries.forEach(([label, count], i) => {
+    const y = pad + i * rowH;
+    const barW = (count / maxCount) * barAreaW;
+    const text = el("text", { class: "tax-label", x: labelW - 6, y: y + rowH / 2 + 4, "text-anchor": "end" });
+    text.textContent = label;
+    svg.appendChild(text);
+    svg.appendChild(el("rect", {
+      class: "tax-bar", x: labelW, y: y + 3, width: Math.max(1, barW), height: rowH - 6, rx: 2,
+      // inline style (not the `fill` attribute) so it wins over the shared .tax-bar class rule
+      ...(opts.colors && opts.colors[label] ? { style: `fill:${opts.colors[label]}` } : {}),
+    }));
+    const countText = el("text", { class: "tax-count", x: labelW + barW + 6, y: y + rowH / 2 + 4 });
+    countText.textContent = String(count);
+    svg.appendChild(countText);
+  });
+
+  container.innerHTML = "";
+  container.appendChild(svg);
+}

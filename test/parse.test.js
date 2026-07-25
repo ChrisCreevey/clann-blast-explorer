@@ -10,6 +10,8 @@ import { classifyAccession, accessionLinkUrl } from "../src/parse/accession.js";
 import { defaultThresholds, passesThresholds, filterHits, computeQcov, classifyQuery } from "../src/analysis/filters.js";
 import { perQuerySummary } from "../src/analysis/summary.js";
 import { taxonLabel } from "../src/render/taxonomy.js";
+import { computeRBH } from "../src/analysis/rbh.js";
+import { toDelimited } from "../export/table-export.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(path.join(__dirname, "fixtures", name), "utf8");
@@ -143,4 +145,39 @@ test("taxonLabel: prefers sscinames, falls back to stitle bracket parsing", () =
   assert.deepEqual(taxonLabel({ sscinames: "Mus musculus" }), { label: "Mus musculus", approximate: false });
   assert.deepEqual(taxonLabel({ stitle: "hypothetical protein [Escherichia coli]" }), { label: "Escherichia coli", approximate: true });
   assert.equal(taxonLabel({}), null);
+});
+
+test("computeRBH: reciprocal / one-way / no-hit classification", () => {
+  const forward = parse(fixture("rbh-forward.tsv"), { filename: "rbh-forward.tsv" });
+  const reverse = parse(fixture("rbh-reverse.tsv"), { filename: "rbh-reverse.tsv" });
+  const { classification, pairs, counts } = computeRBH(forward, reverse, defaultThresholds());
+
+  assert.equal(counts.reciprocal, 2); // geneA<->B_geneA, geneB<->B_geneB
+  assert.equal(counts.oneWay, 1); // geneC's best hit B_geneY reciprocates to geneD, not geneC
+  assert.equal(counts.noHit, 0);
+
+  const geneA = classification.find((c) => c.qseqid === "geneA");
+  assert.equal(geneA.status, "reciprocal");
+  assert.equal(geneA.partner, "B_geneA");
+
+  const geneC = classification.find((c) => c.qseqid === "geneC");
+  assert.equal(geneC.status, "one-way");
+
+  assert.equal(pairs.length, 2);
+  assert.ok(pairs.every((p) => p.fwdBest && p.revBest));
+});
+
+test("computeRBH: a query with no hit in either direction is classified 'no-hit'", () => {
+  const forward = parse("q1\ts1\t99\t100\t0\t0\t1\t100\t1\t100\t1e-50\t200\nq2\ts2\t1\t1\t1\t1\t1\t1\t1\t1\t1\t1\n", { filename: "f.tsv" });
+  const reverse = parse("s1\tq1\t99\t100\t0\t0\t1\t100\t1\t100\t1e-50\t200\n", { filename: "r.tsv" });
+  const { classification } = computeRBH(forward, reverse, { ...defaultThresholds(), minBitscore: 50 });
+  // q2's only hit has bitscore 1, below the threshold — no hit passes, so it's 'no-hit', not 'one-way'.
+  assert.equal(classification.find((c) => c.qseqid === "q2").status, "no-hit");
+});
+
+test("toDelimited: builds TSV with header and escapes embedded delimiters", () => {
+  const text = toDelimited([{ a: "x\ty", b: 2 }], ["a", "b"]);
+  const lines = text.trim().split("\n");
+  assert.equal(lines[0], "a\tb");
+  assert.equal(lines[1], '"x\ty"\t2');
 });

@@ -6,10 +6,13 @@
 
 import { querySummary, globalSummary, perQuerySummary } from "./analysis/summary.js";
 import { defaultThresholds, filterHits, computeQcov } from "./analysis/filters.js";
+import { computeRBH } from "./analysis/rbh.js";
 import { renderHitTable } from "./render/hit-table.js";
 import { renderHitSpan } from "./render/hit-span.js";
-import { renderHistogram, renderScatter } from "./render/charts.js";
+import { renderHistogram, renderScatter, renderCategoryBars } from "./render/charts.js";
 import { renderTaxonomyChart, taxonLabel } from "./render/taxonomy.js";
+import { accessionLinkUrl } from "./parse/accession.js";
+import { toDelimited, downloadText } from "../export/table-export.js";
 
 function fmtNum(v) {
   if (v === undefined || v === null) return "—";
@@ -48,6 +51,7 @@ export function mountExplorer(container, data) {
   });
 
   let thresholds = defaultThresholds();
+  let reverseData = null;
 
   container.innerHTML = "";
   const summaryCard = document.createElement("div");
@@ -111,6 +115,18 @@ export function mountExplorer(container, data) {
   taxCard.className = "card";
   taxCard.innerHTML = "<h3>Taxonomy (best hit per query)</h3><div id=\"taxMount\"></div>";
   container.appendChild(taxCard);
+
+  const rbhCard = document.createElement("div");
+  rbhCard.className = "card";
+  rbhCard.style.display = "none";
+  rbhCard.innerHTML = `<h3>Reciprocal best hits</h3>
+    <div id="rbhCounts"></div>
+    <h4 style="margin-top:14px">Forward vs reverse % identity (reciprocal pairs)</h4>
+    <div id="rbhScatterMount"></div>
+    <h4 style="margin-top:14px">RBH pairs</h4>
+    <button class="act" id="rbhExportBtn" style="width:auto">Download pair table (TSV)</button>
+    <div id="rbhPairMount"></div>`;
+  container.appendChild(rbhCard);
 
   let tableHandle = null;
 
@@ -212,12 +228,72 @@ export function mountExplorer(container, data) {
     renderTaxonomyChart(document.getElementById("taxMount"), bestHits);
   }
 
+  function renderRBH() {
+    if (!reverseData) {
+      rbhCard.style.display = "none";
+      return;
+    }
+    rbhCard.style.display = "";
+    const { pairs, counts } = computeRBH(data, reverseData, thresholds);
+
+    renderCategoryBars(document.getElementById("rbhCounts"), [
+      ["Reciprocal", counts.reciprocal],
+      ["One-way", counts.oneWay],
+      ["No hit", counts.noHit],
+    ], {
+      colors: { Reciprocal: "var(--moss-500)", "One-way": "var(--amber-500)", "No hit": "var(--warn)" },
+    });
+
+    const points = pairs.map((p) => ({
+      x: p.fwdBest.pident, y: p.revBest.pident, label: `${p.qseqid} ↔ ${p.partner}`,
+    }));
+    renderScatter(document.getElementById("rbhScatterMount"), points, {
+      xLabel: "forward % identity", yLabel: "reverse % identity",
+    });
+
+    const pairMount = document.getElementById("rbhPairMount");
+    pairMount.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap";
+    const table = document.createElement("table");
+    table.className = "hit-table";
+    table.innerHTML = `<thead><tr>
+        <th>query</th><th>partner</th><th>fwd %id</th><th>fwd e-value</th><th>rev %id</th><th>rev e-value</th>
+      </tr></thead>`;
+    const tbody = document.createElement("tbody");
+    for (const p of pairs) {
+      const tr = document.createElement("tr");
+      const partnerUrl = accessionLinkUrl(p.partner);
+      const partnerCell = partnerUrl
+        ? `<a href="${partnerUrl}" target="_blank" rel="noopener">${p.partner}</a>`
+        : `<span title="Doesn't match a recognised public accession pattern (likely a local/assembly-specific identifier)">${p.partner}</span>`;
+      tr.innerHTML = `<td>${p.qseqid}</td><td>${partnerCell}</td>` +
+        `<td class="num">${fmtNum(p.fwdBest.pident)}</td><td class="num">${fmtNum(p.fwdBest.evalue)}</td>` +
+        `<td class="num">${fmtNum(p.revBest.pident)}</td><td class="num">${fmtNum(p.revBest.evalue)}</td>`;
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    pairMount.appendChild(wrap);
+
+    document.getElementById("rbhExportBtn").onclick = () => {
+      const rows = pairs.map((p) => ({
+        query: p.qseqid, partner: p.partner,
+        fwd_pident: p.fwdBest.pident, fwd_evalue: p.fwdBest.evalue,
+        rev_pident: p.revBest.pident, rev_evalue: p.revBest.evalue,
+      }));
+      const text = toDelimited(rows, ["query", "partner", "fwd_pident", "fwd_evalue", "rev_pident", "rev_evalue"]);
+      downloadText("rbh-pairs.tsv", text, "text/tab-separated-values");
+    };
+  }
+
   function renderAcrossQueries() {
     renderRunSummary();
     renderPerQueryTable();
     renderCharts();
     renderScatterChart();
     renderTaxonomy();
+    renderRBH();
   }
 
   function renderQuery(qseqid) {
@@ -296,6 +372,10 @@ export function mountExplorer(container, data) {
     setData(newData) {
       data = newData;
       mountExplorer(container, newData);
+    },
+    setReverseData(newReverseData) {
+      reverseData = newReverseData;
+      renderRBH();
     },
   };
 }

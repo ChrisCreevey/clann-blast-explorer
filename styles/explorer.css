@@ -123,6 +123,7 @@ button.act#themeBtn{width:auto}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;box-shadow:var(--shadow-sm)}
 .card h3{margin:0 0 8px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
   font-family:var(--font-mono);font-weight:500}
+.card h4{margin:0 0 8px;font-size:12.5px;color:var(--ink);font-weight:600}
 .query-picker{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .query-picker select{max-width:320px}
 .query-picker .meta{color:var(--muted);font-family:var(--font-mono);font-size:12px}
@@ -168,9 +169,9 @@ table.hit-table td a:hover{text-decoration:underline}
 .scatter-pt{fill:var(--accent);opacity:.7}
 .chart-legend{margin-top:6px;font-size:11px;color:var(--muted)}
 .chart-legend .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
-.taxonomy-svg .tax-bar{fill:var(--accent)}
-.taxonomy-svg .tax-label{font-size:10px;fill:var(--ink);font-family:var(--font-mono)}
-.taxonomy-svg .tax-count{font-size:10px;fill:var(--muted);font-family:var(--font-mono)}
+.taxonomy-svg .tax-bar,.category-bars .tax-bar{fill:var(--accent)}
+.taxonomy-svg .tax-label,.category-bars .tax-label{font-size:10px;fill:var(--ink);font-family:var(--font-mono)}
+.taxonomy-svg .tax-count,.category-bars .tax-count{font-size:10px;fill:var(--muted);font-family:var(--font-mono)}
 .flag-badge{padding:1px 7px;border-radius:10px;font-size:10.5px;font-family:var(--font-mono);white-space:nowrap}
 .flag-badge.flag-hit{background:color-mix(in srgb, var(--moss-500) 25%, transparent);color:var(--moss-500)}
 .flag-badge.flag-weak{background:color-mix(in srgb, var(--amber-500) 25%, transparent);color:var(--amber-500)}

@@ -31,6 +31,10 @@ function loadData(data, name) {
   hMeta.textContent = `${data.queries.length} queries · ${data.hits.length} hits · ${data.meta.format}`;
   if (handle) handle.setData(data);
   else handle = mountExplorer(explorerEl, data);
+  // A new forward run invalidates any previously loaded reverse run.
+  document.getElementById("rbhStatus").textContent =
+    "Load a second (reverse) BLAST run to compute reciprocal best hits against the current (forward) run.";
+  document.getElementById("rbhClearBtn").style.display = "none";
 }
 
 function openText(text, name) {
@@ -64,6 +68,33 @@ fileInput.addEventListener("change", (e) => {
 const pick = () => fileInput.click();
 document.getElementById("uploadBtn").addEventListener("click", pick);
 document.getElementById("emptyOpen").addEventListener("click", pick);
+
+// --- RBH mode: load a second (reverse) BLAST run ---
+const reverseFileInput = document.getElementById("reverseFileInput");
+const rbhStatus = document.getElementById("rbhStatus");
+const rbhClearBtn = document.getElementById("rbhClearBtn");
+document.getElementById("rbhLoadBtn").addEventListener("click", () => reverseFileInput.click());
+reverseFileInput.addEventListener("change", async (e) => {
+  const f = e.target.files && e.target.files[0];
+  reverseFileInput.value = "";
+  if (!f || !handle) return;
+  let text;
+  try { text = await f.text(); }
+  catch { showError(`Couldn't read ${f.name}`); return; }
+  try {
+    const reverseData = parse(text, { filename: f.name });
+    handle.setReverseData(reverseData, f.name);
+    rbhStatus.textContent = `Reverse run: ${f.name} (${reverseData.queries.length} queries, ${reverseData.hits.length} hits)`;
+    rbhClearBtn.style.display = "";
+  } catch (err) {
+    showError(`Couldn't parse reverse file ${f.name}: ${err && err.message ? err.message : err}`);
+  }
+});
+rbhClearBtn.addEventListener("click", () => {
+  if (handle) handle.setReverseData(null);
+  rbhStatus.textContent = "Load a second (reverse) BLAST run to compute reciprocal best hits against the current (forward) run.";
+  rbhClearBtn.style.display = "none";
+});
 
 // --- paste tabular text anywhere (except into a field) to load it ---
 window.addEventListener("paste", (e) => {
