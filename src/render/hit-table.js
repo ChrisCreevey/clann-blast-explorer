@@ -9,6 +9,11 @@ const NUMERIC = new Set([
 
 const DEFAULT_COLS = ["sseqid", "pident", "length", "mismatch", "gapopen", "qstart", "qend", "sstart", "send", "evalue", "bitscore"];
 
+/** Stable identity for a hit row, independent of sort order — used to link the HSP diagram back to its table row. */
+export function hitKey(hit) {
+  return [hit.sseqid, hit.qstart, hit.qend, hit.sstart, hit.send].join("|");
+}
+
 function fmt(v) {
   if (v === undefined || v === null) return "";
   if (typeof v === "number") {
@@ -65,6 +70,7 @@ export function renderHitTable(container, hits, opts = {}) {
     const tbody = document.createElement("tbody");
     for (const hit of sorted) {
       const tr = document.createElement("tr");
+      tr.dataset.key = hitKey(hit);
       for (const col of cols) {
         const td = document.createElement("td");
         if (NUMERIC.has(col)) td.className = "num";
@@ -97,5 +103,16 @@ export function renderHitTable(container, hits, opts = {}) {
 
   return {
     setHits(newHits) { currentHits = newHits; draw(); },
+    /** Scroll the row for `hit` into view and briefly highlight it. */
+    scrollToHit(hit) {
+      const tr = table.querySelector(`tr[data-key="${CSS.escape(hitKey(hit))}"]`);
+      if (!tr) return;
+      tr.scrollIntoView({ block: "center", behavior: "smooth" });
+      tr.classList.remove("flash");
+      // eslint-disable-next-line no-unused-expressions
+      tr.offsetWidth; // restart the animation if already flashing
+      tr.classList.add("flash");
+      setTimeout(() => tr.classList.remove("flash"), 1500);
+    },
   };
 }

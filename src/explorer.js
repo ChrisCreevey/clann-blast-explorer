@@ -70,10 +70,13 @@ export function mountExplorer(container, data) {
       dl.innerHTML = "<dt>—</dt><dd>No hits for this query</dd>";
     }
 
-    renderHitSpan(container.querySelector("#hitSpan"), hits, { qlen: best && best.qlen });
-
     const tableMount = container.querySelector("#hitTableMount");
     tableHandle = renderHitTable(tableMount, hits);
+
+    renderHitSpan(container.querySelector("#hitSpan"), hits, {
+      qlen: best && best.qlen,
+      onHspClick: (hit) => tableHandle && tableHandle.scrollToHit(hit),
+    });
   }
 
   querySelect.innerHTML = data.queries

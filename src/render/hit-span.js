@@ -55,6 +55,10 @@ export function renderHitSpan(container, hits, opts = {}) {
     const title = el("title", {});
     title.textContent = `${h.sseqid}  ${h.qstart}-${h.qend}  ${h.pident ?? "?"}% id  e=${h.evalue ?? "?"}`;
     rect.appendChild(title);
+    if (opts.onHspClick) {
+      rect.classList.add("clickable");
+      rect.addEventListener("click", () => opts.onHspClick(h));
+    }
     svg.appendChild(rect);
   });
 

@@ -134,6 +134,11 @@ table.hit-table th:hover{color:var(--ink)}
 table.hit-table th.sorted::after{content:" ▾"}
 table.hit-table th.sorted.asc::after{content:" ▴"}
 table.hit-table tbody tr:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+table.hit-table tbody tr.flash{animation:hit-row-flash 1.5s ease-out}
+@keyframes hit-row-flash{
+  0%{background:color-mix(in srgb,var(--accent) 35%,transparent)}
+  100%{background:transparent}
+}
 table.hit-table td.num{font-family:var(--font-mono);text-align:right}
 table.hit-table td[title]{cursor:help;border-bottom:1px dotted var(--muted)}
 table.hit-table td a{color:var(--accent);text-decoration:none}
@@ -146,6 +151,7 @@ table.hit-table td a:hover{text-decoration:underline}
 .hit-span-svg .qbar{fill:var(--line)}
 .hit-span-svg .hsp{fill:var(--accent);opacity:.75}
 .hit-span-svg .hsp:hover{opacity:1}
+.hit-span-svg .hsp.clickable{cursor:pointer}
 .hit-span-svg .axis{stroke:var(--muted);stroke-width:1}
 .hit-span-svg text{fill:var(--muted);font-size:10px;font-family:var(--font-mono)}
 .empty-note{color:var(--muted);font-style:italic;padding:12px}
