@@ -81,6 +81,7 @@ export function mountExplorer(container, data) {
   modeBar.className = "seg mode-switch";
   modeBar.innerHTML = `<button data-mode="query" class="on">Per-query</button><button data-mode="all">All queries</button>`;
   container.appendChild(modeBar);
+  document.getElementById("querySection").style.display = ""; // a fresh file load always starts in Per-query mode
 
   const queryModeEl = document.createElement("div");
   queryModeEl.className = "mode-panel";
@@ -182,10 +183,13 @@ export function mountExplorer(container, data) {
   let tableHandle = null;
   let allHitsTableHandle = null;
 
+  const querySection = document.getElementById("querySection");
+
   function switchMode(newMode, qseqid) {
     modeBar.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.mode === newMode));
     queryModeEl.style.display = newMode === "query" ? "flex" : "none";
     allModeEl.style.display = newMode === "all" ? "flex" : "none";
+    querySection.style.display = newMode === "query" ? "" : "none";
     if (qseqid) {
       querySelect.value = qseqid;
       renderQuery(qseqid);
