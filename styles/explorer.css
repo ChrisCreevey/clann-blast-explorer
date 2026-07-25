@@ -120,6 +120,8 @@ button.act#themeBtn{width:auto}
 
 /* ---- explorer-specific ---- */
 #explorer{flex:1;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:auto;padding:14px;gap:14px}
+.mode-switch{flex:none;max-width:320px}
+.mode-panel{display:flex;flex-direction:column;gap:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;box-shadow:var(--shadow-sm)}
 .card h3{margin:0 0 8px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
   font-family:var(--font-mono);font-weight:500}
@@ -181,6 +183,7 @@ table.hit-table td a:hover{text-decoration:underline}
 .flag-badge.flag-weak{background:color-mix(in srgb, var(--amber-500) 25%, transparent);color:var(--amber-500)}
 .flag-badge.flag-none{background:color-mix(in srgb, var(--warn) 25%, transparent);color:var(--warn)}
 #perQueryMount table.hit-table tbody tr{cursor:pointer}
+table.hit-table tbody tr.row-clickable{cursor:pointer}
 
 /* ---- responsive (narrow viewports: stack sidebar above main content) ---- */
 @media (max-width: 760px){

@@ -76,30 +76,59 @@ export function mountExplorer(container, data) {
   let subjectFastaRecords = null;
 
   container.innerHTML = "";
-  const summaryCard = document.createElement("div");
-  summaryCard.className = "card";
-  summaryCard.innerHTML = "<h3>Run summary</h3><div id=\"runSummary\"></div>";
-  container.appendChild(summaryCard);
 
+  const modeBar = document.createElement("div");
+  modeBar.className = "seg mode-switch";
+  modeBar.innerHTML = `<button data-mode="query" class="on">Per-query</button><button data-mode="all">All queries</button>`;
+  container.appendChild(modeBar);
+
+  const queryModeEl = document.createElement("div");
+  queryModeEl.className = "mode-panel";
+  container.appendChild(queryModeEl);
+
+  const allModeEl = document.createElement("div");
+  allModeEl.className = "mode-panel";
+  allModeEl.style.display = "none";
+  container.appendChild(allModeEl);
+
+  // --- Per-query mode ---
   const bestHitCard = document.createElement("div");
   bestHitCard.className = "card best-hit-card";
   bestHitCard.innerHTML = "<h3 id=\"bestHitHeading\">Best hit</h3><div id=\"bestHitMount\"></div>";
-  container.appendChild(bestHitCard);
+  queryModeEl.appendChild(bestHitCard);
 
   const spanCard = document.createElement("div");
   spanCard.className = "card";
   spanCard.innerHTML = "<h3>HSP coverage</h3><div id=\"hitSpan\"></div>";
-  container.appendChild(spanCard);
+  queryModeEl.appendChild(spanCard);
 
   const tableCard = document.createElement("div");
   tableCard.className = "card";
   tableCard.innerHTML = "<h3>Hits for this query</h3><div id=\"hitTableMount\"></div>";
-  container.appendChild(tableCard);
+  queryModeEl.appendChild(tableCard);
+
+  // --- All-queries mode ---
+  const summaryCard = document.createElement("div");
+  summaryCard.className = "card";
+  summaryCard.innerHTML = "<h3>Run summary</h3><div id=\"runSummary\"></div>";
+  allModeEl.appendChild(summaryCard);
 
   const perQueryCard = document.createElement("div");
   perQueryCard.className = "card";
-  perQueryCard.innerHTML = "<h3>Per-query summary (all queries)</h3><div id=\"perQueryMount\"></div>";
-  container.appendChild(perQueryCard);
+  perQueryCard.innerHTML = "<h3>Per-query summary</h3><div id=\"perQueryMount\"></div>";
+  allModeEl.appendChild(perQueryCard);
+
+  const allHitsCard = document.createElement("div");
+  allHitsCard.className = "card";
+  allHitsCard.innerHTML = `<h3>All hits</h3>
+    <div class="chart-controls">
+      <select id="allHitsScope">
+        <option value="all">all hits</option>
+        <option value="best">best hit per query</option>
+      </select>
+    </div>
+    <div id="allHitsMount"></div>`;
+  allModeEl.appendChild(allHitsCard);
 
   const chartsCard = document.createElement("div");
   chartsCard.className = "card";
@@ -118,7 +147,7 @@ export function mountExplorer(container, data) {
       </select>
     </div>
     <div id="chartMount"></div>`;
-  container.appendChild(chartsCard);
+  allModeEl.appendChild(chartsCard);
 
   const scatterCard = document.createElement("div");
   scatterCard.className = "card";
@@ -131,12 +160,12 @@ export function mountExplorer(container, data) {
       </select>
     </div>
     <div id="scatterMount"></div>`;
-  container.appendChild(scatterCard);
+  allModeEl.appendChild(scatterCard);
 
   const taxCard = document.createElement("div");
   taxCard.className = "card";
   taxCard.innerHTML = "<h3>Taxonomy (best hit per query)</h3><div id=\"taxMount\"></div>";
-  container.appendChild(taxCard);
+  allModeEl.appendChild(taxCard);
 
   const rbhCard = document.createElement("div");
   rbhCard.className = "card";
@@ -148,9 +177,21 @@ export function mountExplorer(container, data) {
     <h4 style="margin-top:14px">RBH pairs</h4>
     <button class="act" id="rbhExportBtn" style="width:auto">Download pair table (TSV)</button>
     <div id="rbhPairMount"></div>`;
-  container.appendChild(rbhCard);
+  allModeEl.appendChild(rbhCard);
 
   let tableHandle = null;
+  let allHitsTableHandle = null;
+
+  function switchMode(newMode, qseqid) {
+    modeBar.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.mode === newMode));
+    queryModeEl.style.display = newMode === "query" ? "flex" : "none";
+    allModeEl.style.display = newMode === "all" ? "flex" : "none";
+    if (qseqid) {
+      querySelect.value = qseqid;
+      renderQuery(qseqid);
+    }
+  }
+  modeBar.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => switchMode(b.dataset.mode)));
 
   function readThresholds() {
     const maxEv = filterInputs.maxEvalue.value.trim();
@@ -207,10 +248,8 @@ export function mountExplorer(container, data) {
         `<td class="num">${r.best ? fmtNum(r.best.pident) : "—"}</td>` +
         `<td class="num">${r.best ? fmtNum(r.best.evalue) : "—"}</td>` +
         `<td><span class="flag-badge flag-${r.flag}">${FLAG_LABEL[r.flag]}</span></td>`;
-      tr.addEventListener("click", () => {
-        querySelect.value = r.qseqid;
-        renderQuery(r.qseqid);
-      });
+      tr.classList.add("row-clickable");
+      tr.addEventListener("click", () => switchMode("query", r.qseqid));
       tbody.appendChild(tr);
     }
     table.appendChild(tbody);
@@ -254,6 +293,19 @@ export function mountExplorer(container, data) {
     const perQ = perQuerySummary(data, thresholds);
     const bestHits = perQ.map((q) => q.best).filter(Boolean);
     renderTaxonomyChart(document.getElementById("taxMount"), bestHits);
+  }
+
+  function renderAllHitsTable() {
+    const scope = document.getElementById("allHitsScope").value;
+    const hits = scope === "best"
+      ? perQuerySummary(data, thresholds).map((q) => q.best).filter(Boolean)
+      : filterHits(data.hits, thresholds);
+    const cols = EXPORT_COLS.filter((c) => hits.some((h) => h[c] !== undefined));
+    allHitsTableHandle = renderHitTable(document.getElementById("allHitsMount"), hits, {
+      columns: cols,
+      defaultSort: "bitscore",
+      onRowClick: (hit) => switchMode("query", hit.qseqid),
+    });
   }
 
   function renderRBH() {
@@ -318,6 +370,7 @@ export function mountExplorer(container, data) {
   function renderAcrossQueries() {
     renderRunSummary();
     renderPerQueryTable();
+    renderAllHitsTable();
     renderCharts();
     renderScatterChart();
     renderTaxonomy();
@@ -418,6 +471,7 @@ export function mountExplorer(container, data) {
   });
   ["chartMetric", "chartScope"].forEach((id) => document.getElementById(id).addEventListener("change", renderCharts));
   document.getElementById("scatterColorBy").addEventListener("change", renderScatterChart);
+  document.getElementById("allHitsScope").addEventListener("change", renderAllHitsTable);
 
   // --- Phase 4: export ---
   function showNote(msg) {

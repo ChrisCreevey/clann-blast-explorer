@@ -71,6 +71,10 @@ export function renderHitTable(container, hits, opts = {}) {
     for (const hit of sorted) {
       const tr = document.createElement("tr");
       tr.dataset.key = hitKey(hit);
+      if (opts.onRowClick) {
+        tr.classList.add("row-clickable");
+        tr.addEventListener("click", () => opts.onRowClick(hit));
+      }
       for (const col of cols) {
         const td = document.createElement("td");
         if (NUMERIC.has(col)) td.className = "num";
