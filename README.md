@@ -6,7 +6,7 @@ DIAMOND tabular output. Companion to [Clann Tree Viewer](https://github.com/Chri
 Load your BLAST results and see, per query, a ranked hit table, a best-hit
 summary, and a coverage diagram of where each HSP falls along the query.
 Across the whole run: filter, summarise, compute reciprocal best hits, and
-export FASTA subsets or CSV/TSV for downstream alignment and phylogenetics.
+export FASTA subsets or CSV/TSV for downstream alignment and phylogenetic analyses.
 
 **Nothing is uploaded.** Everything runs client-side, in your browser.
 
