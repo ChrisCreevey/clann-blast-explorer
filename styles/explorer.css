@@ -151,7 +151,8 @@ table.hit-table td a:hover{text-decoration:underline}
 .best-hit-card .tied-best{padding:8px 0;border-top:1px solid var(--line)}
 .best-hit-card .tied-best:first-child{padding-top:0;border-top:none}
 .best-hit-card .tied-best>b{display:block;margin-bottom:4px;font-size:12.5px}
-.hit-span-svg{width:100%;height:auto;display:block}
+.hit-span-wrap{max-height:320px;overflow-y:auto;overflow-x:hidden}
+.hit-span-svg{width:100%;display:block}
 .hit-span-svg .qbar{fill:var(--line)}
 .hit-span-svg .hsp{fill:var(--accent);opacity:.75}
 .hit-span-svg .hsp:hover{opacity:1}

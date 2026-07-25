@@ -34,7 +34,10 @@ export function renderHitSpan(container, hits, opts = {}) {
 
   const width = 640, rowH = 16, pad = 30;
   const height = pad + hits.length * rowH + pad;
-  const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, class: "hit-span-svg" });
+  const svg = el("svg", {
+    viewBox: `0 0 ${width} ${height}`, class: "hit-span-svg", preserveAspectRatio: "none",
+    style: `height:${height}px`, // fixed pixel height so a scrolling wrapper can cap it, independent of width:100%
+  });
 
   const scale = (pos) => pad + (pos / qlen) * (width - 2 * pad);
 
@@ -92,5 +95,8 @@ export function renderHitSpan(container, hits, opts = {}) {
   endLabel.textContent = String(qlen);
   svg.appendChild(endLabel);
 
-  container.appendChild(svg);
+  const wrap = document.createElement("div");
+  wrap.className = "hit-span-wrap";
+  wrap.appendChild(svg);
+  container.appendChild(wrap);
 }
