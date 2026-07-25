@@ -77,9 +77,27 @@
       <select id="querySelect" title="Select a query to inspect"></select>
       <div class="hint" id="queryMeta"></div>
 
-      <details class="sect" id="rowFilters">
+      <details class="sect" id="rowFilters" open>
         <summary>Filters</summary>
-        <div class="hint">Threshold filtering, top-N cap, and taxon include/exclude arrive in Phase 2.</div>
+        <div class="row"><label for="fMinPident">Min % identity</label></div>
+        <input type="number" id="fMinPident" min="0" max="100" step="1" value="0">
+        <div class="row"><label for="fMaxEvalue">Max e-value</label></div>
+        <input type="text" id="fMaxEvalue" placeholder="e.g. 1e-5 (blank = no cap)">
+        <div class="row"><label for="fMinBitscore">Min bit score</label></div>
+        <input type="number" id="fMinBitscore" min="0" step="1" value="0">
+        <div class="row"><label for="fMinLength">Min alignment length</label></div>
+        <input type="number" id="fMinLength" min="0" step="1" value="0">
+        <div class="row"><label for="fMinQcov">Min query coverage %</label></div>
+        <input type="number" id="fMinQcov" min="0" max="100" step="1" value="0">
+        <div class="row"><label for="fExcludeSelf">Exclude self-hits</label><input type="checkbox" id="fExcludeSelf"></div>
+        <div class="row"><label for="fTopN">Top N per query</label></div>
+        <input type="number" id="fTopN" min="0" step="1" value="0" placeholder="0 = no cap">
+        <div class="row" id="rowTaxonInclude"><label for="fTaxonInclude">Include taxa</label></div>
+        <input type="text" id="fTaxonInclude" placeholder="comma-separated">
+        <div class="row" id="rowTaxonExclude"><label for="fTaxonExclude">Exclude taxa</label></div>
+        <input type="text" id="fTaxonExclude" placeholder="comma-separated">
+        <button class="act warn" id="fReset">Reset filters</button>
+        <div class="hint">Applies live to the per-query view, run-wide summary, and charts below.</div>
       </details>
 
       <details class="sect" id="rowRbh">

@@ -1,5 +1,36 @@
 // summary.js — per-query and global summary calculations.
 
+import { filterHits, classifyQuery } from "./filters.js";
+
+/**
+ * Per-query summary rows under the active thresholds: hit count, best hit
+ * (both unfiltered and filtered), and a hit/weak/none flag. Used by the
+ * across-queries summary table.
+ */
+export function perQuerySummary(data, thresholds) {
+  const filtered = filterHits(data.hits, thresholds);
+  const filteredByQuery = new Map();
+  for (const h of filtered) {
+    if (!filteredByQuery.has(h.qseqid)) filteredByQuery.set(h.qseqid, []);
+    filteredByQuery.get(h.qseqid).push(h);
+  }
+  return data.queries.map((q) => {
+    const allHits = data.hits.filter((h) => h.qseqid === q.qseqid);
+    const passingHits = filteredByQuery.get(q.qseqid) || [];
+    const bestPassing = passingHits.reduce(
+      (best, h) => (!best || (h.bitscore ?? -Infinity) > (best.bitscore ?? -Infinity) ? h : best),
+      null
+    );
+    return {
+      qseqid: q.qseqid,
+      hitCount: allHits.length,
+      passingCount: passingHits.length,
+      best: bestPassing || q.best,
+      flag: classifyQuery(allHits, passingHits),
+    };
+  });
+}
+
 /** Return the query summary row for a given qseqid (hitCount, best hit). */
 export function querySummary(data, qseqid) {
   return data.queries.find((q) => q.qseqid === qseqid) || null;

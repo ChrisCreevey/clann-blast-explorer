@@ -158,3 +158,21 @@ table.hit-table td a:hover{text-decoration:underline}
 .hit-span-svg .hsp-label{fill:#fff;font-size:9px;pointer-events:none}
 :root[data-theme="dark"] .hit-span-svg .hsp-label{fill:var(--stone-900)}
 .empty-note{color:var(--muted);font-style:italic;padding:12px}
+
+.chart-controls{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.chart-controls select{width:auto}
+.chart-svg{width:100%;height:auto;display:block}
+.chart-svg .axis{stroke:var(--muted);stroke-width:1}
+.chart-svg text{fill:var(--muted);font-size:10px;font-family:var(--font-mono)}
+.hist-bar{fill:var(--accent);opacity:.8}
+.scatter-pt{fill:var(--accent);opacity:.7}
+.chart-legend{margin-top:6px;font-size:11px;color:var(--muted)}
+.chart-legend .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.taxonomy-svg .tax-bar{fill:var(--accent)}
+.taxonomy-svg .tax-label{font-size:10px;fill:var(--ink);font-family:var(--font-mono)}
+.taxonomy-svg .tax-count{font-size:10px;fill:var(--muted);font-family:var(--font-mono)}
+.flag-badge{padding:1px 7px;border-radius:10px;font-size:10.5px;font-family:var(--font-mono);white-space:nowrap}
+.flag-badge.flag-hit{background:color-mix(in srgb, var(--moss-500) 25%, transparent);color:var(--moss-500)}
+.flag-badge.flag-weak{background:color-mix(in srgb, var(--amber-500) 25%, transparent);color:var(--amber-500)}
+.flag-badge.flag-none{background:color-mix(in srgb, var(--warn) 25%, transparent);color:var(--warn)}
+#perQueryMount table.hit-table tbody tr{cursor:pointer}

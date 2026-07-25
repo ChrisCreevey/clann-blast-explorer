@@ -7,6 +7,9 @@ import path from "node:path";
 import { parse, ColumnMappingNeeded } from "../src/parse/index.js";
 import { parseFasta, matchFastaIds, toFastaText } from "../src/parse/fasta.js";
 import { classifyAccession, accessionLinkUrl } from "../src/parse/accession.js";
+import { defaultThresholds, passesThresholds, filterHits, computeQcov, classifyQuery } from "../src/analysis/filters.js";
+import { perQuerySummary } from "../src/analysis/summary.js";
+import { taxonLabel } from "../src/render/taxonomy.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(path.join(__dirname, "fixtures", name), "utf8");
@@ -90,4 +93,54 @@ test("toFastaText wraps sequences", () => {
   assert.equal(lines[0], ">x");
   assert.equal(lines[1].length, 70);
   assert.equal(lines[2].length, 5);
+});
+
+test("computeQcov: uses qcovs when present, else derives from qlen and aligned span", () => {
+  assert.equal(computeQcov({ qcovs: 87 }), 87);
+  assert.equal(computeQcov({ qlen: 200, qstart: 1, qend: 100 }), 50);
+  assert.equal(computeQcov({}), undefined);
+});
+
+test("passesThresholds: numeric and self-hit/taxon filters", () => {
+  const hit = { qseqid: "q1", sseqid: "s1", pident: 95, evalue: 1e-10, bitscore: 200, length: 150, sscinames: "Homo sapiens" };
+  assert.equal(passesThresholds(hit, defaultThresholds()), true);
+  assert.equal(passesThresholds(hit, { ...defaultThresholds(), minPident: 99 }), false);
+  assert.equal(passesThresholds(hit, { ...defaultThresholds(), maxEvalue: 1e-20 }), false);
+  assert.equal(passesThresholds({ ...hit, sseqid: "q1" }, { ...defaultThresholds(), excludeSelfHits: true }), false);
+  assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonInclude: "mus musculus" }), false);
+  assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonInclude: "homo" }), true);
+  assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonExclude: "homo" }), false);
+});
+
+test("filterHits: applies top-N-per-query cap by bitscore", () => {
+  const hits = [
+    { qseqid: "q1", sseqid: "a", bitscore: 100 },
+    { qseqid: "q1", sseqid: "b", bitscore: 300 },
+    { qseqid: "q1", sseqid: "c", bitscore: 200 },
+    { qseqid: "q2", sseqid: "d", bitscore: 50 },
+  ];
+  const capped = filterHits(hits, { ...defaultThresholds(), topNPerQuery: 1 });
+  assert.equal(capped.length, 2);
+  assert.equal(capped.find((h) => h.qseqid === "q1").sseqid, "b"); // highest bitscore kept
+});
+
+test("classifyQuery: hit / weak / none", () => {
+  assert.equal(classifyQuery([{}], [{}]), "hit");
+  assert.equal(classifyQuery([{}], []), "weak");
+  assert.equal(classifyQuery([], []), "none");
+});
+
+test("perQuerySummary: flags queries against active thresholds", () => {
+  const data = parse(fixture("outfmt6.tsv"), { filename: "outfmt6.tsv" });
+  const rows = perQuerySummary(data, defaultThresholds());
+  assert.equal(rows.find((r) => r.qseqid === "query1").flag, "hit");
+  const strict = perQuerySummary(data, { ...defaultThresholds(), minPident: 99 });
+  const q1Strict = strict.find((r) => r.qseqid === "query1");
+  assert.equal(q1Strict.flag, "weak"); // has hits, but none reach 99% identity
+});
+
+test("taxonLabel: prefers sscinames, falls back to stitle bracket parsing", () => {
+  assert.deepEqual(taxonLabel({ sscinames: "Mus musculus" }), { label: "Mus musculus", approximate: false });
+  assert.deepEqual(taxonLabel({ stitle: "hypothetical protein [Escherichia coli]" }), { label: "Escherichia coli", approximate: true });
+  assert.equal(taxonLabel({}), null);
 });
