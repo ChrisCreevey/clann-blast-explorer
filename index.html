@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Clann BLAST Explorer — free online BLAST tabular output viewer</title>
-<meta name="description" content="Free, browser-based BLAST tabular output explorer. Load -outfmt 6/7 or DIAMOND tabular results to filter, summarise, and visualise hits per query and across a whole run, compute reciprocal best hits, and export FASTA subsets for downstream alignment and phylogenetics. Nothing is uploaded; everything runs in your browser.">
-<meta name="keywords" content="BLAST viewer, BLAST tabular output, outfmt 6, outfmt 7, DIAMOND output, reciprocal best hit, RBH, bioinformatics, sequence homology, hit table viewer, online BLAST explorer">
+<meta name="description" content="Free, browser-based BLAST tabular output explorer. Load -outfmt 6/7 or DIAMOND tabular results (plain, gzipped, or zipped) to filter, summarise, and visualise hits per query and across a whole run, fill in missing taxonomy from an NCBI taxdump, compute reciprocal best hits, and export FASTA subsets for downstream alignment and phylogenetics. Nothing is uploaded; everything runs in your browser.">
+<meta name="keywords" content="BLAST viewer, BLAST tabular output, outfmt 6, outfmt 7, DIAMOND output, reciprocal best hit, RBH, taxonomy mapping, names.dmp, bioinformatics, sequence homology, hit table viewer, online BLAST explorer">
 <meta name="author" content="CreeveyLab">
 <link rel="canonical" href="https://chriscreevey.github.io/clann-blast-explorer/">
 <meta property="og:type" content="website">
@@ -31,8 +31,8 @@
   "operatingSystem": "Any (modern web browser)",
   "browserRequirements": "Requires JavaScript",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "description": "Free browser-based BLAST tabular output explorer. Filter, summarise, and visualise BLAST/DIAMOND hits, compute reciprocal best hits, and export FASTA subsets for alignment and phylogenetics.",
-  "keywords": "BLAST viewer, outfmt 6, outfmt 7, DIAMOND, reciprocal best hit, hit table",
+  "description": "Free browser-based BLAST tabular output explorer. Filter, summarise, and visualise BLAST/DIAMOND hits, fill in missing taxonomy from an NCBI taxdump, compute reciprocal best hits, and export FASTA subsets for alignment and phylogenetics.",
+  "keywords": "BLAST viewer, outfmt 6, outfmt 7, DIAMOND, reciprocal best hit, hit table, taxonomy mapping",
   "author": { "@type": "Organization", "name": "CreeveyLab", "url": "https://www.creeveylab.org/" },
   "codeRepository": "https://github.com/ChrisCreevey/clann-blast-explorer"
 }
@@ -48,6 +48,14 @@
       "acceptedAnswer": { "@type": "Answer", "text": "Yes. DIAMOND's default tabular output uses the same 12-column layout as BLAST -outfmt 6 and is recognised automatically." } },
     { "@type": "Question", "name": "Can I upload a gzipped or zipped BLAST file?",
       "acceptedAnswer": { "@type": "Answer", "text": "Yes. .gz and .zip files are decompressed in your browser before parsing — nothing is uploaded, even temporarily." } },
+    { "@type": "Question", "name": "What if my file has no header row?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Headerless data is never guessed silently, even at 12 columns. A manual column-mapping step opens instead, with a data preview and best-guess dropdowns you confirm or correct." } },
+    { "@type": "Question", "name": "What's the difference between Per-query and All-queries view?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Per-query view shows one query's best hit, HSP coverage diagram, and hit table. All-queries view covers the whole run at once: summary tables, distribution charts, taxonomy, and RBH results." } },
+    { "@type": "Question", "name": "Can I filter by taxon, identity, or e-value?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Thresholds for %identity, e-value, bit score, alignment length, and query coverage, plus self-hit exclusion, a top-N-per-query cap, and taxon include/exclude, all applying live with Undo and Reset." } },
+    { "@type": "Question", "name": "My BLAST output has taxon IDs but no species names — can this fix that?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Upload NCBI's names.dmp or taxdump.tar.gz to backfill scientific/common names from staxids or from a taxon ID embedded in sseqid, with a preview before applying." } },
     { "@type": "Question", "name": "Is my data uploaded to a server?",
       "acceptedAnswer": { "@type": "Answer", "text": "No. Everything runs client-side in your browser, so your BLAST results never leave your computer." } },
     { "@type": "Question", "name": "Can it compute reciprocal best hits (RBH)?",
@@ -206,6 +214,29 @@
           <p><strong>Clann BLAST Explorer</strong> is a free, open-source tool for exploring <strong>BLAST</strong> and <strong>DIAMOND</strong> tabular output entirely in your web browser. Open a <code>-outfmt 6</code> or <code>-outfmt 7</code> file — or paste tabular text — and see, for each query, a ranked hit table, a best-hit summary, and a coverage diagram of where each high-scoring pair (HSP) falls along the query. Across the whole run, filter by identity, e-value, bit score, alignment length, and query coverage; view distribution charts and a taxonomy breakdown when taxonomy columns are present; compute <strong>reciprocal best hits</strong> from a forward/reverse pair; and export FASTA subsets or CSV/TSV tables for downstream work, including alignment and tree building in <a href="https://github.com/ChrisCreevey/clann-tree-viewer" target="_blank" rel="noopener">Clann Tree Viewer</a>.</p>
           <p>Because all parsing and rendering happen locally in your browser, your BLAST results are never uploaded to a server.</p>
 
+          <h2>Using the explorer</h2>
+
+          <h3>Loading data</h3>
+          <p>Click “Open file…”, drag a file onto the window, or paste tabular text directly. Accepts <code>-outfmt 6</code> (headerless or with a plain header row), <code>-outfmt 7</code> (with a <code>"# Fields:"</code> line), DIAMOND's default tabular output, and <code>.gz</code>/<code>.zip</code> compressed versions of any of these — decompressed in your browser before parsing. If a file has no header at all, a column-mapping step appears with a data preview and best-guess dropdowns so you can confirm or correct which column is which before loading, rather than the order being assumed silently.</p>
+
+          <h3>Per-query view</h3>
+          <p>Pick a query from the “Query” dropdown to see its best hit (or every hit tied for the top bit score, shown separately rather than picking one arbitrarily), a coverage diagram showing where each high-scoring pair (HSP) falls along the query — click a segment to jump straight to its row in the hit table below — and the full ranked, sortable hit table for that query.</p>
+
+          <h3>All-queries view</h3>
+          <p>Switch to “All queries” at the top of the main panel for a whole-run perspective: a run summary, a per-query summary table (click a row to jump into that query's detail view), a flat “All hits” table spanning every query at once (sortable, toggle between all hits and best-hit-only), distribution charts for %identity/e-value/bit score/alignment length/query coverage, an identity-vs-coverage scatter (colourable by e-value or taxon), a taxonomy breakdown, and RBH mode's results once a reverse run is loaded.</p>
+
+          <h3>Filters</h3>
+          <p>Set thresholds for %identity, e-value, bit score, alignment length, and query coverage; exclude self-hits; cap hits per query to the top N; and include/exclude specific taxa once taxonomy information is available. Filters apply live everywhere at once — the per-query view, run summary, charts, and RBH classification all update immediately. Undo steps back through recent changes one at a time; Reset clears everything back to no filtering.</p>
+
+          <h3>Taxonomy mapping</h3>
+          <p>If your BLAST run has <code>staxids</code> but no scientific names (common without NCBI's taxdb installed locally), upload <code>names.dmp</code> or the full <code>taxdump.tar.gz</code>/<code>new_taxdump.tar.gz</code> — extracted and parsed entirely in your browser — to fill in the missing names. The taxon ID can come from the <code>staxids</code> column, or be extracted from <code>sseqid</code> itself for ID schemes like STRING/EggNOG's <code>9606.ENSP00000269305</code> (a genuine taxon ID as a prefix); a preview always shows exactly what will resolve before you apply it, since a pattern-extracted ID can coincidentally match an unrelated real taxon without looking wrong. Filling in names feeds the taxonomy chart, the taxon filters, and the hit table automatically — “Clear mapping” reverts to the originally parsed data.</p>
+
+          <h3>RBH mode</h3>
+          <p>Load a second (reverse) BLAST/DIAMOND run to compute reciprocal best hits against the current (forward) run. Each query is classified as reciprocal, one-way, or no hit under the active filters, with a count breakdown, a forward-vs-reverse %identity scatter for reciprocal pairs, and an exportable pair table — all shown in All-queries view.</p>
+
+          <h3>Export</h3>
+          <p>Choose a scope — the current query, or all hits passing the active filters — then: download the hit table as TSV/CSV; export FASTA directly from <code>qseq</code>/<code>sseq</code> columns when present; upload the original query and/or subject FASTA for ID-matched export of a specific subset (queries passing filters, weak-hit, no-hit, or all queries); combine a query's sequence with its hit sequences into one FASTA ready for an alignment tool; or download a plain accession list for NCBI Batch Entrez when sequences aren't available locally.</p>
+
           <h2>Frequently asked questions</h2>
 
           <h3>How do I view BLAST tabular output online?</h3>
@@ -216,6 +247,18 @@
 
           <h3>Can I upload a gzipped or zipped BLAST file?</h3>
           <p>Yes — <code>.gz</code> and <code>.zip</code> files are decompressed in your browser before parsing, so you don't need to extract them yourself first. Nothing is uploaded, even temporarily.</p>
+
+          <h3>What if my file has no header row?</h3>
+          <p>Headerless tabular data is only ever auto-assigned the standard 12-column order when a <code>"# Fields:"</code> line or a recognisable header row says so explicitly — never guessed silently, since a custom <code>-outfmt "6 ..."</code> column order could easily still have exactly 12 columns arranged differently. Otherwise a manual column-mapping step opens: a preview of your first few rows with a dropdown per column, prefilled with a best guess you can correct.</p>
+
+          <h3>What's the difference between Per-query and All-queries view?</h3>
+          <p>Per-query view shows one query at a time in detail — its best hit, HSP coverage diagram, and full hit table. All-queries view steps back for a whole-run perspective: summary tables, distribution charts, taxonomy, and RBH results across every query at once. Switch between them with the toggle at the top of the main panel; clicking a row in either summary table jumps you into that query's Per-query view.</p>
+
+          <h3>Can I filter by taxon, identity, or e-value?</h3>
+          <p>Yes, in the Filters panel: thresholds for %identity, e-value, bit score, alignment length, and query coverage; a self-hit exclusion toggle; a top-N-per-query cap; and taxon include/exclude once taxonomy information is available (from the file itself or from an uploaded taxonomy mapping). Every filter applies live across the whole app, with Undo and Reset.</p>
+
+          <h3>My BLAST output has taxon IDs but no species names — can this fix that?</h3>
+          <p>Yes, in the Taxonomy mapping panel: upload NCBI's <code>names.dmp</code> (or the full <code>taxdump.tar.gz</code>), and it backfills scientific/common names wherever a <code>staxids</code> column — or a taxon ID embedded in <code>sseqid</code> itself, for ID schemes like STRING/EggNOG — is present but unnamed. A preview shows exactly what will resolve before you apply it.</p>
 
           <h3>Is my data uploaded to a server?</h3>
           <p>No. Everything runs client-side in your browser, so your BLAST results never leave your computer.</p>
