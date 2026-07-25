@@ -46,6 +46,8 @@
       "acceptedAnswer": { "@type": "Answer", "text": "Open Clann BLAST Explorer, then click Open file or drag your -outfmt 6 or -outfmt 7 tabular file onto the window. You can also paste tabular text straight in. The hit table renders instantly and stays on your machine." } },
     { "@type": "Question", "name": "Does it support DIAMOND output?",
       "acceptedAnswer": { "@type": "Answer", "text": "Yes. DIAMOND's default tabular output uses the same 12-column layout as BLAST -outfmt 6 and is recognised automatically." } },
+    { "@type": "Question", "name": "Can I upload a gzipped or zipped BLAST file?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. .gz and .zip files are decompressed in your browser before parsing — nothing is uploaded, even temporarily." } },
     { "@type": "Question", "name": "Is my data uploaded to a server?",
       "acceptedAnswer": { "@type": "Answer", "text": "No. Everything runs client-side in your browser, so your BLAST results never leave your computer." } },
     { "@type": "Question", "name": "Can it compute reciprocal best hits (RBH)?",
@@ -195,7 +197,7 @@
         <div class="hero">
           <h1>Clann BLAST Explorer</h1>
           <div class="lead">A free, browser-based explorer for BLAST tabular output. Open a <code>-outfmt 6</code> or <code>-outfmt 7</code> file, or DIAMOND tabular output — drag one in, or paste it — then browse hits per query, summarise and filter across the whole run, compute reciprocal best hits, and export FASTA subsets for alignment and phylogenetics (including in <a href="https://github.com/ChrisCreevey/clann-tree-viewer" target="_blank" rel="noopener">Clann Tree Viewer</a>).<br>Everything runs locally; nothing is uploaded to a server.</div>
-          <div class="exts">outfmt 6 · outfmt 7 · DIAMOND · .tsv · .txt</div>
+          <div class="exts">outfmt 6 · outfmt 7 · DIAMOND · .tsv · .txt · .gz · .zip</div>
           <button id="emptyOpen">Open file…</button>
           <div class="scroll-hint">↓ About &amp; FAQ</div>
         </div>
@@ -211,6 +213,9 @@
 
           <h3>Does it support DIAMOND output?</h3>
           <p>Yes. DIAMOND's default tabular output uses the same 12-column layout as BLAST <code>-outfmt 6</code> and is recognised automatically.</p>
+
+          <h3>Can I upload a gzipped or zipped BLAST file?</h3>
+          <p>Yes — <code>.gz</code> and <code>.zip</code> files are decompressed in your browser before parsing, so you don't need to extract them yourself first. Nothing is uploaded, even temporarily.</p>
 
           <h3>Is my data uploaded to a server?</h3>
           <p>No. Everything runs client-side in your browser, so your BLAST results never leave your computer.</p>
@@ -248,11 +253,11 @@
     </span>
   </footer>
 </div>
-<input type="file" id="fileInput" accept=".tsv,.tab,.txt,.blast,.m8,text/plain" style="display:none">
-<input type="file" id="reverseFileInput" accept=".tsv,.tab,.txt,.blast,.m8,text/plain" style="display:none">
-<input type="file" id="queryFastaInput" accept=".fasta,.fa,.fna,.faa,.txt,text/plain" style="display:none">
-<input type="file" id="subjectFastaInput" accept=".fasta,.fa,.fna,.faa,.txt,text/plain" style="display:none">
-<input type="file" id="taxdumpInput" accept=".dmp,.tar.gz,.tgz,.gz,text/plain" style="display:none">
+<input type="file" id="fileInput" accept=".tsv,.tab,.txt,.blast,.m8,.gz,.zip,text/plain" style="display:none">
+<input type="file" id="reverseFileInput" accept=".tsv,.tab,.txt,.blast,.m8,.gz,.zip,text/plain" style="display:none">
+<input type="file" id="queryFastaInput" accept=".fasta,.fa,.fna,.faa,.txt,.gz,.zip,text/plain" style="display:none">
+<input type="file" id="subjectFastaInput" accept=".fasta,.fa,.fna,.faa,.txt,.gz,.zip,text/plain" style="display:none">
+<input type="file" id="taxdumpInput" accept=".dmp,.tar.gz,.tgz,.gz,.zip,text/plain" style="display:none">
 <script type="module" src="src/app.js"></script>
 </body>
 </html>

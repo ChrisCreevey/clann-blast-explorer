@@ -15,6 +15,7 @@ import { computeRBH } from "../src/analysis/rbh.js";
 import {
   parseTarEntries, parseNamesDmp, extractTaxidFromId, buildTaxonPreview, enrichHitsWithTaxonomy,
 } from "../src/parse/taxdump.js";
+import { decompressIfNeeded, listZipEntries } from "../src/parse/compressed.js";
 import { toDelimited } from "../export/table-export.js";
 import {
   querySeqEntriesFromHits, subjectSeqEntriesFromHits, matchedFastaEntries, toFasta, accessionListText,
@@ -22,6 +23,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(path.join(__dirname, "fixtures", name), "utf8");
+const fixtureBuffer = (name) => readFileSync(path.join(__dirname, "fixtures", name));
 
 test("standard -outfmt 6 (headerless, 12 columns): always needs manual mapping, even at the standard count", () => {
   // No "# Fields:" line and no header row — a custom -outfmt order could still
@@ -363,4 +365,34 @@ test("parseTarEntries: walks fixed 512-byte tar headers to find files by name", 
   assert.equal(entries[0].size, 12);
   const text = new TextDecoder().decode(bytes.subarray(entries[0].start, entries[0].start + entries[0].size));
   assert.equal(text, "hello dmp!\n\n");
+});
+
+test("decompressIfNeeded: gunzips a .gz upload and strips the extension from the filename", async () => {
+  const buf = fixtureBuffer("compressed.tsv.gz");
+  const file = new File([buf], "compressed.tsv.gz", { type: "application/gzip" });
+  const result = await decompressIfNeeded(file);
+  assert.ok(result);
+  assert.equal(result.filename, "compressed.tsv");
+  assert.equal(result.text, fixture("plain-header.tsv"));
+});
+
+test("decompressIfNeeded: extracts the first suitable entry from a .zip upload", async () => {
+  const buf = fixtureBuffer("compressed.zip");
+  const file = new File([buf], "compressed.zip", { type: "application/zip" });
+  const result = await decompressIfNeeded(file);
+  assert.ok(result);
+  assert.equal(result.filename, "compressed-source.tsv");
+  assert.equal(result.text, fixture("plain-header.tsv"));
+});
+
+test("decompressIfNeeded: returns null for a plain uncompressed file (detected by magic bytes, not extension)", async () => {
+  const file = new File([fixture("plain-header.tsv")], "plain-header.tsv", { type: "text/plain" });
+  assert.equal(await decompressIfNeeded(file), null);
+});
+
+test("listZipEntries: reads the central directory of the fixture zip", () => {
+  const bytes = new Uint8Array(fixtureBuffer("compressed.zip"));
+  const entries = listZipEntries(bytes);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].name, "compressed-source.tsv");
 });

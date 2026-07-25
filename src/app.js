@@ -7,6 +7,7 @@ import { parseFasta } from "./parse/fasta.js";
 import { mountExplorer } from "./explorer.js";
 import { renderColumnMapping } from "./render/column-mapping.js";
 import { extractNamesDmpFromTarGz, parseNamesDmp } from "./parse/taxdump.js";
+import { decompressIfNeeded } from "./parse/compressed.js";
 
 const explorerEl = document.getElementById("explorer");
 const columnMappingEl = document.getElementById("columnMapping");
@@ -85,12 +86,18 @@ function showColumnMapping(err, text, name) {
   });
 }
 
+/** Read a File as text, transparently gunzipping/unzipping it first if it's compressed. */
+async function readTextFile(file) {
+  const decompressed = await decompressIfNeeded(file);
+  return decompressed || { text: await file.text(), filename: file.name };
+}
+
 async function openFile(file) {
   if (!file) return;
-  let text;
-  try { text = await file.text(); }
-  catch { showError(`Couldn't read ${file.name}`); return; }
-  openText(text, file.name);
+  let text, name;
+  try { ({ text, filename: name } = await readTextFile(file)); }
+  catch (err) { showError(`Couldn't read ${file.name}: ${err && err.message ? err.message : err}`); return; }
+  openText(text, name);
 }
 
 // --- file input / buttons ---
@@ -112,16 +119,16 @@ reverseFileInput.addEventListener("change", async (e) => {
   const f = e.target.files && e.target.files[0];
   reverseFileInput.value = "";
   if (!f || !handle) return;
-  let text;
-  try { text = await f.text(); }
-  catch { showError(`Couldn't read ${f.name}`); return; }
+  let text, name;
+  try { ({ text, filename: name } = await readTextFile(f)); }
+  catch (err) { showError(`Couldn't read ${f.name}: ${err && err.message ? err.message : err}`); return; }
   try {
-    const reverseData = parse(text, { filename: f.name });
-    handle.setReverseData(reverseData, f.name);
-    rbhStatus.textContent = `Reverse run: ${f.name} (${reverseData.queries.length} queries, ${reverseData.hits.length} hits)`;
+    const reverseData = parse(text, { filename: name });
+    handle.setReverseData(reverseData, name);
+    rbhStatus.textContent = `Reverse run: ${name} (${reverseData.queries.length} queries, ${reverseData.hits.length} hits)`;
     rbhClearBtn.style.display = "";
   } catch (err) {
-    showError(`Couldn't parse reverse file ${f.name}: ${err && err.message ? err.message : err}`);
+    showError(`Couldn't parse reverse file ${name}: ${err && err.message ? err.message : err}`);
   }
 });
 rbhClearBtn.addEventListener("click", () => {
@@ -133,15 +140,15 @@ rbhClearBtn.addEventListener("click", () => {
 // --- Phase 4: upload query/subject FASTA for ID-matched export ---
 async function loadFastaInto(file, setter) {
   if (!file || !handle) return;
-  let text;
-  try { text = await file.text(); }
-  catch { showError(`Couldn't read ${file.name}`); return; }
+  let text, name;
+  try { ({ text, filename: name } = await readTextFile(file)); }
+  catch (err) { showError(`Couldn't read ${file.name}: ${err && err.message ? err.message : err}`); return; }
   try {
     const records = parseFasta(text);
     if (!records.length) throw new Error("no FASTA records found");
-    setter(records, file.name);
+    setter(records, name);
   } catch (err) {
-    showError(`Couldn't parse ${file.name} as FASTA: ${err && err.message ? err.message : err}`);
+    showError(`Couldn't parse ${name} as FASTA: ${err && err.message ? err.message : err}`);
   }
 }
 const queryFastaInput = document.getElementById("queryFastaInput");
@@ -173,10 +180,11 @@ taxdumpInput.addEventListener("change", async (e) => {
   loadTaxdumpBtn.disabled = true;
   try {
     let text;
-    if (/\.(tar\.gz|tgz|gz)$/i.test(f.name)) {
+    if (/\.(tar\.gz|tgz)$/i.test(f.name)) {
       text = await extractNamesDmpFromTarGz(await f.arrayBuffer());
     } else {
-      text = await f.text();
+      const decompressed = await decompressIfNeeded(f); // handles a plain names.dmp.gz or .zip
+      text = decompressed ? decompressed.text : await f.text();
     }
     const taxonMap = parseNamesDmp(text);
     if (!taxonMap.size) throw new Error("no scientific names found — is this a names.dmp file?");
