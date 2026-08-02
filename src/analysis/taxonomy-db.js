@@ -116,28 +116,36 @@ export function resolveLineageBatch(db, taxids, opts) {
 
 /**
  * Backfill sscinames/sskingdoms on hits that have a staxids value but no
- * name yet, using a loaded taxonomy db handle (as returned by
- * loadTaxonomyDb — anything with a resolveLineage(taxid) method works).
- * Mirrors ../parse/taxdump.js's enrichHitsWithTaxonomy, but resolves a full
- * lineage rather than a flat name lookup. Never overwrites existing
- * sscinames. Returns a new hits array (originals untouched) and the count
- * of hits that were filled in.
+ * name yet, and attach the full resolved lineage as `taxonLineage` (used by
+ * ./filters.js for rank-specific taxon filtering) on every hit a taxid
+ * resolves for — including ones that already had a name, since those still
+ * benefit from rank-level filtering even though their name isn't rewritten.
+ * Uses a loaded taxonomy db handle (as returned by loadTaxonomyDb —
+ * anything with a resolveLineage(taxid) method works). Mirrors
+ * ../parse/taxdump.js's enrichHitsWithTaxonomy for the name-filling part,
+ * but resolves a full lineage rather than a flat name lookup. Never
+ * overwrites an existing sscinames. Returns a new hits array (originals
+ * untouched) and the count of hits whose *name* was filled in (not the
+ * count with lineage attached, which may be higher).
  */
 export function enrichHitsWithLineage(hits, taxonomyDb) {
   let filledCount = 0;
   const enriched = hits.map((h) => {
-    if (h.sscinames || !h.staxids) return h;
+    if (!h.staxids) return h;
     const ids = Array.isArray(h.staxids) ? h.staxids : [h.staxids];
     const lineages = ids.map((id) => taxonomyDb.resolveLineage(id)).filter(Boolean);
     if (!lineages.length) return h;
+
+    const hadName = !!h.sscinames;
     const names = lineages.map((l) => l.species || l.genus).filter(Boolean);
     const kingdoms = lineages.map((l) => l.superkingdom || l.kingdom).filter(Boolean);
-    if (!names.length && !kingdoms.length) return h;
-    filledCount++;
+    if (!hadName && (names.length || kingdoms.length)) filledCount++;
+
     return {
       ...h,
-      ...(names.length ? { sscinames: names.join("; ") } : {}),
-      ...(kingdoms.length ? { sskingdoms: kingdoms.join("; ") } : {}),
+      ...(!hadName && names.length ? { sscinames: names.join("; ") } : {}),
+      ...(!hadName && kingdoms.length ? { sskingdoms: kingdoms.join("; ") } : {}),
+      taxonLineage: lineages[0],
     };
   });
   return { hits: enriched, filledCount };

@@ -47,8 +47,13 @@ you confirm or correct.
 
 - **Filters** — thresholds for %identity, e-value, bit score, alignment
   length, and query coverage; self-hit exclusion; a top-N-per-query cap; and
-  taxon include/exclude once taxonomy information is available. Applies live
-  everywhere at once, with Undo and Reset.
+  taxon include/exclude once taxonomy information is available. "Match rank"
+  scopes include/exclude to a specific lineage rank (superkingdom/domain
+  through species) instead of matching any name/ID text — only takes effect
+  on hits enriched with full lineage via the built-in taxonomy database
+  below (manual `names.dmp` uploads only carry a flat name, so those hits
+  never match a rank-specific filter). Applies live everywhere at once, with
+  Undo and Reset.
 - **Taxonomy mapping** — if your run has `staxids` but no scientific names
   (common without NCBI's taxdb installed locally), two ways to back them in:
   - Upload `names.dmp` or the full `taxdump.tar.gz`/`new_taxdump.tar.gz`
@@ -67,11 +72,11 @@ you confirm or correct.
     for every hit in the file, not just those currently passing the
     sidebar's filters — matching itself is just parent-pointer lookups per
     taxid, so it's effectively instant even for thousands of hits.
-  Either path fills `sscinames`/`sskingdoms`, which feeds the taxonomy
-  chart, hit table, and the existing taxon include/exclude filters
-  automatically (no separate rank-level filter yet — include/exclude is a
-  substring match against the resolved name); "Clear mapping" reverts to
-  the originally parsed data.
+  Either path fills `sscinames`/`sskingdoms`, feeding the taxonomy chart and
+  hit table automatically; the built-in database additionally attaches the
+  full resolved lineage to each hit, enabling the Filters panel's
+  rank-specific include/exclude. "Clear mapping" reverts to the originally
+  parsed data.
 - **RBH mode** — load a second (reverse) BLAST/DIAMOND run to compute
   reciprocal best hits against the current (forward) run. Classifies each
   query as reciprocal / one-way / no hit under the active filters, with a
@@ -125,6 +130,8 @@ beyond the original brief:
 - [x] Gzip/zip support on every file upload
 - [x] Built-in taxonomy database — prebuilt NCBI taxid→lineage lookup, fetched once and
   cached client-side, resolving full lineage rather than just a name (`tools/build-taxonomy-db.js`)
+- [x] Rank-specific taxon filtering (Match rank: superkingdom/domain..species) on top of the
+  existing include/exclude, using the built-in database's resolved lineage
 
 ## Outstanding placeholders (see build brief §9)
 

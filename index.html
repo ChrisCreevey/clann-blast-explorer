@@ -104,6 +104,19 @@
         <div class="row"><label for="fExcludeSelf">Exclude self-hits</label><input type="checkbox" id="fExcludeSelf"></div>
         <div class="row"><label for="fTopN">Top N per query</label></div>
         <input type="number" id="fTopN" min="0" step="1" value="0" placeholder="0 = no cap">
+        <div class="row" id="rowTaxonRank"><label for="fTaxonRank">Match rank</label></div>
+        <select id="fTaxonRank">
+          <option value="any">Any (name/ID text)</option>
+          <option value="superkingdom">Superkingdom / domain</option>
+          <option value="kingdom">Kingdom</option>
+          <option value="phylum">Phylum</option>
+          <option value="class">Class</option>
+          <option value="order">Order</option>
+          <option value="family">Family</option>
+          <option value="genus">Genus</option>
+          <option value="species">Species</option>
+        </select>
+        <div class="hint" id="taxonRankHint">A specific rank only matches hits enriched with full lineage — currently just the built-in taxonomy database, below.</div>
         <div class="row" id="rowTaxonInclude"><label for="fTaxonInclude">Include taxa</label></div>
         <input type="text" id="fTaxonInclude" placeholder="comma-separated">
         <div class="row" id="rowTaxonExclude"><label for="fTaxonExclude">Exclude taxa</label></div>

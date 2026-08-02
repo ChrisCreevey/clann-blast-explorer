@@ -16,6 +16,7 @@ import {
   parseTarEntries, parseNamesDmp, extractTaxidFromId, buildTaxonPreview, enrichHitsWithTaxonomy,
 } from "../src/parse/taxdump.js";
 import { decompressIfNeeded, listZipEntries } from "../src/parse/compressed.js";
+import { decodeTaxonomyDb, resolveLineage, resolveLineageBatch, enrichHitsWithLineage } from "../src/analysis/taxonomy-db.js";
 import { toDelimited } from "../export/table-export.js";
 import {
   querySeqEntriesFromHits, subjectSeqEntriesFromHits, matchedFastaEntries, toFasta, accessionListText,
@@ -158,6 +159,29 @@ test("passesThresholds: numeric and self-hit/taxon filters", () => {
   assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonInclude: "mus musculus" }), false);
   assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonInclude: "homo" }), true);
   assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonExclude: "homo" }), false);
+});
+
+test("passesThresholds: rank-specific taxon matching uses taxonLineage, not sscinames/staxids text", () => {
+  const withLineage = {
+    qseqid: "q1", sseqid: "s1", sscinames: "Homo sapiens",
+    taxonLineage: { superkingdom: "Eukaryota", kingdom: "Metazoa", phylum: "Chordata", genus: "Homo", species: "Homo sapiens" },
+  };
+  const noLineage = { qseqid: "q1", sseqid: "s2", sscinames: "Homo sapiens" };
+
+  // "any" (default) still matches the flat name/staxid text as before.
+  assert.equal(passesThresholds(withLineage, { ...defaultThresholds(), taxonInclude: "homo sapiens" }), true);
+
+  // A specific rank matches only that rank's resolved value...
+  assert.equal(passesThresholds(withLineage, { ...defaultThresholds(), taxonInclude: "chordata", taxonRank: "phylum" }), true);
+  assert.equal(passesThresholds(withLineage, { ...defaultThresholds(), taxonInclude: "arthropoda", taxonRank: "phylum" }), false);
+  // ...and doesn't match against an unrelated rank's value even though the text exists elsewhere on the hit.
+  assert.equal(passesThresholds(withLineage, { ...defaultThresholds(), taxonInclude: "homo sapiens", taxonRank: "phylum" }), false);
+  // A hit with no taxonLineage never matches a rank-specific filter, regardless of its flat name.
+  assert.equal(passesThresholds(noLineage, { ...defaultThresholds(), taxonInclude: "chordata", taxonRank: "phylum" }), false);
+
+  // Exclude works the same way, scoped to the rank.
+  assert.equal(passesThresholds(withLineage, { ...defaultThresholds(), taxonExclude: "chordata", taxonRank: "phylum" }), false);
+  assert.equal(passesThresholds(withLineage, { ...defaultThresholds(), taxonExclude: "arthropoda", taxonRank: "phylum" }), true);
 });
 
 test("filterHits: applies top-N-per-query cap by bitscore", () => {
@@ -345,6 +369,94 @@ test("enrichHitsWithTaxonomy: pattern-extraction source works the same way as st
   assert.equal(filledCount, 1);
   assert.equal(enriched[0].sscinames, "Homo sapiens");
   assert.deepEqual(enriched[0].staxids, ["9606"]);
+});
+
+test("enrichHitsWithLineage: fills sscinames/sskingdoms and attaches taxonLineage for rank filtering", () => {
+  const LINEAGE = { taxid: 9606, superkingdom: "Eukaryota", kingdom: "Metazoa", phylum: "Chordata", genus: "Homo", species: "Homo sapiens" };
+  const fakeDb = { resolveLineage: (taxid) => (String(taxid) === "9606" ? LINEAGE : null) };
+
+  const hits = [
+    { qseqid: "q1", sseqid: "s1", staxids: ["9606"] },
+    { qseqid: "q2", sseqid: "s2", staxids: ["1"] }, // unresolvable — left alone
+    { qseqid: "q3", sseqid: "s3", staxids: ["9606"], sscinames: "Already set" }, // name kept, but lineage still attached
+    { qseqid: "q4", sseqid: "s4" }, // no staxids at all
+  ];
+  const { hits: enriched, filledCount } = enrichHitsWithLineage(hits, fakeDb);
+
+  assert.equal(filledCount, 1); // only q1's name was actually filled in
+  assert.equal(enriched[0].sscinames, "Homo sapiens");
+  assert.equal(enriched[0].sskingdoms, "Eukaryota");
+  assert.deepEqual(enriched[0].taxonLineage, LINEAGE);
+
+  assert.equal(enriched[1].taxonLineage, undefined);
+
+  assert.equal(enriched[2].sscinames, "Already set"); // never overwritten
+  assert.deepEqual(enriched[2].taxonLineage, LINEAGE); // but lineage attached regardless, for rank filtering
+
+  assert.equal(enriched[3].taxonLineage, undefined);
+});
+
+test("resolveLineage: walks parent pointers to the canonical ranks, tolerates alias ranks and unknown taxids", () => {
+  // Minimal hand-built binary matching tools/build-taxonomy-db.js's format:
+  // root(1) -> domain:Eukaryota(2) -> phylum:Chordata(3) -> species:Homo sapiens(4)
+  // Uses "domain" (current NCBI taxdump) rather than "superkingdom" to exercise the rank alias.
+  const ranks = ["no rank", "domain", "phylum", "species"];
+  const nodes = [
+    { taxid: 1, parent: 1, rank: "no rank", name: "root" },
+    { taxid: 2, parent: 1, rank: "domain", name: "Eukaryota" },
+    { taxid: 3, parent: 2, rank: "phylum", name: "Chordata" },
+    { taxid: 4, parent: 3, rank: "species", name: "Homo sapiens" },
+  ];
+  const maxTaxid = 4;
+  const parentTaxid = new Int32Array(maxTaxid + 1).fill(-1);
+  const rankId = new Uint8Array(maxTaxid + 1).fill(255);
+  const nameOffset = new Uint32Array(maxTaxid + 1).fill(0xffffffff);
+  const nameLength = new Uint16Array(maxTaxid + 1);
+  const nameChunks = [];
+  let nameOff = 0;
+  for (const n of nodes) {
+    parentTaxid[n.taxid] = n.parent;
+    rankId[n.taxid] = ranks.indexOf(n.rank);
+    const enc = new TextEncoder().encode(n.name);
+    nameOffset[n.taxid] = nameOff;
+    nameLength[n.taxid] = enc.length;
+    nameChunks.push(enc);
+    nameOff += enc.length;
+  }
+  const nameBlob = new Uint8Array(nameOff);
+  { let p = 0; for (const c of nameChunks) { nameBlob.set(c, p); p += c.length; } }
+  const rankTableBlob = new TextEncoder().encode(ranks.join("\0") + "\0");
+
+  const headerLen = 16;
+  const arraysLen = parentTaxid.byteLength + nameOffset.byteLength + nameLength.byteLength + rankId.byteLength;
+  const buf = new ArrayBuffer(headerLen + arraysLen + rankTableBlob.length + 4 + nameBlob.length);
+  const dv = new DataView(buf);
+  let p = 0;
+  new Uint8Array(buf, 0, 4).set(new TextEncoder().encode("CBTX")); p += 4;
+  dv.setUint32(p, 1, true); p += 4;
+  dv.setUint32(p, maxTaxid, true); p += 4;
+  dv.setUint32(p, rankTableBlob.length, true); p += 4;
+  new Int32Array(buf, p, maxTaxid + 1).set(parentTaxid); p += parentTaxid.byteLength;
+  new Uint32Array(buf, p, maxTaxid + 1).set(nameOffset); p += nameOffset.byteLength;
+  new Uint16Array(buf, p, maxTaxid + 1).set(nameLength); p += nameLength.byteLength;
+  new Uint8Array(buf, p, maxTaxid + 1).set(rankId); p += rankId.byteLength;
+  new Uint8Array(buf, p, rankTableBlob.length).set(rankTableBlob); p += rankTableBlob.length;
+  dv.setUint32(p, nameBlob.length, true); p += 4;
+  new Uint8Array(buf, p, nameBlob.length).set(nameBlob); p += nameBlob.length;
+
+  const db = decodeTaxonomyDb(buf);
+  const lineage = resolveLineage(db, 4);
+  assert.equal(lineage.species, "Homo sapiens");
+  assert.equal(lineage.phylum, "Chordata");
+  assert.equal(lineage.superkingdom, "Eukaryota"); // "domain" aliased to "superkingdom"
+  assert.equal(lineage.kingdom, undefined); // not present in this lineage — never invented
+
+  assert.equal(resolveLineage(db, 999), null); // unknown taxid
+  assert.deepEqual(resolveLineage(db, 1), { taxid: 1 }); // root: no canonical ranks above it
+
+  const batch = resolveLineageBatch(db, [4, 999]);
+  assert.equal(batch.get(4).species, "Homo sapiens");
+  assert.equal(batch.get(999), null);
 });
 
 test("parseTarEntries: walks fixed 512-byte tar headers to find files by name", () => {

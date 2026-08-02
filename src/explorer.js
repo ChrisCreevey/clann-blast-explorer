@@ -58,18 +58,22 @@ export function mountExplorer(container, data) {
     topNPerQuery: document.getElementById("fTopN"),
     taxonInclude: document.getElementById("fTaxonInclude"),
     taxonExclude: document.getElementById("fTaxonExclude"),
+    taxonRank: document.getElementById("fTaxonRank"),
   };
   const resetBtn = document.getElementById("fReset");
   document.getElementById("fUndo").disabled = true;
   const rowTaxonInclude = document.getElementById("rowTaxonInclude");
   const rowTaxonExclude = document.getElementById("rowTaxonExclude");
+  const rowTaxonRank = document.getElementById("rowTaxonRank");
+  const taxonRankHint = document.getElementById("taxonRankHint");
   const taxonIncludeInput = filterInputs.taxonInclude;
   const taxonExcludeInput = filterInputs.taxonExclude;
+  const taxonRankInput = filterInputs.taxonRank;
 
   let showTaxonFilters = !!data.meta.hasTaxonomy;
   function updateTaxonFilterVisibility() {
     showTaxonFilters = !!data.meta.hasTaxonomy;
-    [rowTaxonInclude, rowTaxonExclude, taxonIncludeInput, taxonExcludeInput].forEach((el) => {
+    [rowTaxonInclude, rowTaxonExclude, rowTaxonRank, taxonRankHint, taxonIncludeInput, taxonExcludeInput, taxonRankInput].forEach((el) => {
       if (el) el.style.display = showTaxonFilters ? "" : "none";
     });
   }
@@ -220,6 +224,7 @@ export function mountExplorer(container, data) {
       topNPerQuery: Number(filterInputs.topNPerQuery.value) || 0,
       taxonInclude: showTaxonFilters ? filterInputs.taxonInclude.value.trim() : "",
       taxonExclude: showTaxonFilters ? filterInputs.taxonExclude.value.trim() : "",
+      taxonRank: showTaxonFilters ? filterInputs.taxonRank.value : "any",
     };
   }
 
@@ -449,6 +454,7 @@ export function mountExplorer(container, data) {
     filterInputs.topNPerQuery.value = t.topNPerQuery;
     filterInputs.taxonInclude.value = t.taxonInclude;
     filterInputs.taxonExclude.value = t.taxonExclude;
+    filterInputs.taxonRank.value = t.taxonRank;
   }
 
   function refreshAll() {

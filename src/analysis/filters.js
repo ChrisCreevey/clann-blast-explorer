@@ -11,6 +11,7 @@ export function defaultThresholds() {
     topNPerQuery: 0, // 0 = no cap
     taxonInclude: "", // comma-separated scientific names/substrings
     taxonExclude: "",
+    taxonRank: "any", // "any" (name/common-name/staxid text), or a specific lineage rank — see LINEAGE_RANKS in ../analysis/taxonomy-db.js
   };
 }
 
@@ -25,7 +26,16 @@ export function computeQcov(hit) {
   return undefined;
 }
 
-function taxonNamesOf(hit) {
+function taxonNamesOf(hit, rank) {
+  // A specific lineage rank (e.g. "phylum") only matches against that rank's
+  // resolved name — set on the hit by enrichHitsWithLineage when the
+  // built-in taxonomy database (../analysis/taxonomy-db.js) was applied.
+  // Hits without lineage data (manual names.dmp upload, or no taxonomy
+  // applied at all) simply never match a rank-specific filter.
+  if (rank && rank !== "any") {
+    const v = hit.taxonLineage?.[rank];
+    return v ? String(v).toLowerCase() : "";
+  }
   const names = [];
   if (hit.sscinames) names.push(hit.sscinames);
   if (hit.scomnames) names.push(hit.scomnames);
@@ -33,11 +43,11 @@ function taxonNamesOf(hit) {
   return names.join(" ").toLowerCase();
 }
 
-function matchesTaxonList(hit, list) {
+function matchesTaxonList(hit, list, rank) {
   if (!list) return null; // no constraint
   const terms = list.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
   if (!terms.length) return null;
-  const haystack = taxonNamesOf(hit);
+  const haystack = taxonNamesOf(hit, rank);
   return terms.some((t) => haystack.includes(t));
 }
 
@@ -53,8 +63,8 @@ export function passesThresholds(hit, thresholds) {
     if (qcov === undefined || qcov < t.minQcov) return false;
   }
   if (t.excludeSelfHits && hit.qseqid === hit.sseqid) return false;
-  if (t.taxonInclude && matchesTaxonList(hit, t.taxonInclude) === false) return false;
-  if (t.taxonExclude && matchesTaxonList(hit, t.taxonExclude) === true) return false;
+  if (t.taxonInclude && matchesTaxonList(hit, t.taxonInclude, t.taxonRank) === false) return false;
+  if (t.taxonExclude && matchesTaxonList(hit, t.taxonExclude, t.taxonRank) === true) return false;
   return true;
 }
 
