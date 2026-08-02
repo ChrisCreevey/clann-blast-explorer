@@ -101,6 +101,17 @@ you confirm or correct.
   long-read samples through BLAST/DIAMOND and this exporter, then load all
   the resulting TSVs into eDNA Explorer together.
 
+  See it end to end with [`examples/nanopore-diamond-nr.tsv`](examples/nanopore-diamond-nr.tsv)
+  (a synthetic 5-read DIAMOND-vs-NR run, `read1` deliberately given a
+  second, weaker hit to show best-hit selection) and the file it produces,
+  [`examples/nanopore-diamond-nr-edna-sample.tsv`](examples/nanopore-diamond-nr-edna-sample.tsv)
+  — load the first file here, apply the built-in taxonomy database, export
+  the eDNA Explorer sample, and the result should match the second file
+  exactly. Load that second file straight into
+  [Clann eDNA Explorer](https://chriscreevey.github.io/clann-edna-explorer/)
+  to see the full sunburst/Sankey/rank-table treatment (its own
+  `examples/` includes the same file for the same reason).
+
 ## What it does not do
 
 - Does not run BLAST or DIAMOND searches

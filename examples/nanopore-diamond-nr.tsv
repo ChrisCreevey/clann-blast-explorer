@@ -1,0 +1,12 @@
+# SYNTHETIC EXAMPLE DATA — not real BLAST/DIAMOND output, generated for Clann BLAST Explorer development/testing.
+# Illustrates the "Nanopore reads -> DIAMOND vs NR -> eDNA Explorer" workflow described in the README's
+# "eDNA Explorer sample" export section: 5 long reads, DIAMOND blastx against NR, multiple hits for read1
+# to show best-hit selection. Load this file, load the built-in taxonomy database, apply it, then use
+# "Download eDNA Explorer sample (TSV)" — the result should match examples/nanopore-diamond-nr-edna-sample.tsv.
+# Fields: query acc.ver, subject acc.ver, % identity, alignment length, mismatches, gap opens, q. start, q. end, s. start, s. end, evalue, bit score, subject tax ids
+read1	sp|P69905|HBA_HUMAN	95.4	140	6	0	1	140	1	140	2e-95	280	9606
+read1	sp|P01942|HBA_MOUSE	78.2	138	28	1	1	138	1	138	3e-60	190	10090
+read2	sp|P69905|HBA_HUMAN	96.0	142	5	0	1	142	1	142	1e-96	285	9606
+read3	sp|P01942|HBA_MOUSE	92.5	140	10	0	1	140	1	140	4e-90	260	10090
+read4	sp|P02283|H2B_DROME	85.0	120	18	0	1	120	1	120	1e-55	175	7227
+read5	sp|P0CX76|RL401_YEAST	80.0	100	20	0	1	100	1	100	2e-40	140	4932
