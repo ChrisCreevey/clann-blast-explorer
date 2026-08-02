@@ -50,15 +50,28 @@ you confirm or correct.
   taxon include/exclude once taxonomy information is available. Applies live
   everywhere at once, with Undo and Reset.
 - **Taxonomy mapping** — if your run has `staxids` but no scientific names
-  (common without NCBI's taxdb installed locally), upload `names.dmp` or the
-  full `taxdump.tar.gz`/`new_taxdump.tar.gz` (gunzipped and untarred entirely
-  client-side) to back them in. The taxon ID source is configurable: the
-  `staxids` column, or extracted from `sseqid` itself for ID schemes like
-  STRING/EggNOG's `9606.ENSP00000269305` (a genuine taxon ID as a prefix) — a
-  preview always shows what will resolve before you apply it, since a
-  pattern-extracted ID can coincidentally match an unrelated real taxon
-  without looking wrong. Feeds the taxonomy chart, taxon filters, and hit
-  table automatically; "Clear mapping" reverts to the originally parsed data.
+  (common without NCBI's taxdb installed locally), two ways to back them in:
+  - Upload `names.dmp` or the full `taxdump.tar.gz`/`new_taxdump.tar.gz`
+    (gunzipped and untarred entirely client-side) yourself. The taxon ID
+    source is configurable: the `staxids` column, or extracted from `sseqid`
+    itself for ID schemes like STRING/EggNOG's `9606.ENSP00000269305` (a
+    genuine taxon ID as a prefix) — a preview always shows what will resolve
+    before you apply it, since a pattern-extracted ID can coincidentally
+    match an unrelated real taxon without looking wrong.
+  - Or click "Load built-in taxonomy database" — a prebuilt NCBI taxonomy
+    lookup (`data/taxonomy-db.bin.gz`, rebuilt periodically from NCBI's
+    taxdump by `tools/build-taxonomy-db.js`) fetched once (~27MB) and cached
+    in your browser's IndexedDB, so every later visit loads it instantly
+    with no re-download. Unlike the upload option, it resolves a full
+    lineage (superkingdom/domain through species) from the `staxids` column
+    for every hit in the file, not just those currently passing the
+    sidebar's filters — matching itself is just parent-pointer lookups per
+    taxid, so it's effectively instant even for thousands of hits.
+  Either path fills `sscinames`/`sskingdoms`, which feeds the taxonomy
+  chart, hit table, and the existing taxon include/exclude filters
+  automatically (no separate rank-level filter yet — include/exclude is a
+  substring match against the resolved name); "Clear mapping" reverts to
+  the originally parsed data.
 - **RBH mode** — load a second (reverse) BLAST/DIAMOND run to compute
   reciprocal best hits against the current (forward) run. Classifies each
   query as reciprocal / one-way / no hit under the active filters, with a
@@ -110,6 +123,8 @@ beyond the original brief:
 - [x] All-queries mode as a first-class view, separate from per-query
 - [x] NCBI taxonomy dump support (`names.dmp`/`taxdump.tar.gz`, two taxon ID sources)
 - [x] Gzip/zip support on every file upload
+- [x] Built-in taxonomy database — prebuilt NCBI taxid→lineage lookup, fetched once and
+  cached client-side, resolving full lineage rather than just a name (`tools/build-taxonomy-db.js`)
 
 ## Outstanding placeholders (see build brief §9)
 
