@@ -216,7 +216,7 @@
 
         <h4>eDNA Explorer sample</h4>
         <button class="act" id="exportEdnaBtn">Download eDNA Explorer sample (TSV)</button>
-        <div class="hint" id="exportEdnaHint">One row per taxon, with a read count under the active filters — treats this run as one metabarcoding sample (each query = one read, assigned to its best passing hit's taxon; unmatched queries are pooled as "Unclassified"). Loads directly into <a href="https://chriscreevey.github.io/clann-edna-explorer/" target="_blank" rel="noopener">Clann eDNA Explorer</a>'s generic tab-delimited input — process each of several samples this way, then load them all together there for multi-sample comparison.</div>
+        <div class="hint" id="exportEdnaHint">A "Lineage TSV" — one row per resolved taxon path (with a taxid per rank when the built-in taxonomy database was used, not just a name), plus a read count under the active filters. Treats this run as one metabarcoding sample: each query = one read, assigned to its best passing hit's taxon; unmatched queries are pooled into a single unclassified row. Gives <a href="https://chriscreevey.github.io/clann-edna-explorer/" target="_blank" rel="noopener">Clann eDNA Explorer</a> full rank hierarchy for this sample — not just a flat name list — so it participates fully in rank views, the sunburst/Sankey diagrams, and multi-sample comparison. Process each of several samples this way, then load them all together there.</div>
       </details>
     </aside>
     <div id="sideResize" title="Drag to resize the panel · double-click to reset"></div>

@@ -80,9 +80,13 @@ function rankForTaxid(db, taxid) {
 
 /**
  * Walk the parent chain from `taxid` to the root, returning a
- * { superkingdom, kingdom, phylum, ..., species, taxid } object with only
- * the canonical LINEAGE_RANKS populated (other ranks in the chain, e.g.
- * "no rank" or "subfamily", are skipped). Returns null for an unknown taxid.
+ * { superkingdom, superkingdom_taxid, kingdom, kingdom_taxid, ..., species,
+ * species_taxid, taxid } object with only the canonical LINEAGE_RANKS
+ * populated (other ranks in the chain, e.g. "no rank" or "subfamily", are
+ * skipped) — each rank's own taxid is carried alongside its name (as
+ * `<rank>_taxid`) since some consumers (e.g. ../../export/edna-export.js's
+ * Lineage TSV output) need a real taxid per rank, not just the leaf.
+ * Returns null for an unknown taxid.
  */
 export function resolveLineage(db, taxid, { maxDepth = 64 } = {}) {
   taxid = Number(taxid);
@@ -99,6 +103,7 @@ export function resolveLineage(db, taxid, { maxDepth = 64 } = {}) {
     const name = nameForTaxid(db, current);
     if (rank && rankSet.has(rank) && name && lineage[rank] === undefined) {
       lineage[rank] = name;
+      lineage[`${rank}_taxid`] = current;
     }
     const parent = db.parentTaxid[current];
     if (parent === -1 || parent === current) break; // root node is its own parent

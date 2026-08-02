@@ -1,42 +1,63 @@
-// edna-export.js — export a filtered, taxonomy-annotated run as a flat
-// name/abundance table matching Clann eDNA Explorer's generic tab-delimited
-// input format (see clann-edna-explorer/src/parsers/sniff.js sniffGeneric:
-// >=2 columns, one column that's numeric in nearly every row (abundance),
-// one that's text in nearly every row (taxon name), optional header — the
-// header is auto-detected because a text "abundance" cell in row 1 isn't
-// numeric). Two columns, "name" then "abundance", header first, satisfies
-// that detector directly with no manual column mapping needed on load.
+// edna-export.js — export a filtered, taxonomy-annotated run as a "Lineage
+// TSV" table for Clann eDNA Explorer: one row per unique resolved taxon
+// path, carrying the full lineage (name + taxid per rank) rather than a
+// flat name/count pair, so eDNA Explorer's importer can build a proper
+// taxonomy tree from it — full rank views, sunburst, Sankey, and
+// multi-sample comparison, the same as a native Kraken/Bracken sample.
 //
 // One BLAST/DIAMOND run here becomes one eDNA "sample": each query stands
 // in for one read, assigned to the taxon of its best hit passing the
 // active filters (ties broken the same way as the rest of the app's
 // "best hit" handling — highest bitscore, first one seen). A query with no
-// hit passing the filters counts as "Unclassified", mirroring how a
-// metabarcoding read that failed to classify is reported by Kraken/Bracken.
+// hit passing the filters, or whose best hit has no resolvable taxon name
+// at all, counts as unclassified (a single reserved row with every rank
+// column empty), mirroring how Kraken/Bracken report unclassified reads.
 // Process each sample's BLAST/DIAMOND output through this exporter, then
 // load all the resulting TSVs into Clann eDNA Explorer together as a
 // multi-sample run.
 
 import { filterHits } from "../src/analysis/filters.js";
 import { taxonLabel } from "../src/render/taxonomy.js";
+import { LINEAGE_RANKS } from "../src/analysis/taxonomy-db.js";
 import { toDelimited } from "./table-export.js";
 
-export const UNCLASSIFIED = "Unclassified";
+const COLUMNS = ["count", ...LINEAGE_RANKS.flatMap((r) => [r, `${r}_taxid`])];
 
-/** Best available taxon name for a hit: full lineage species, else sscinames, else a stitle-parsed guess. */
-function bestTaxonName(hit) {
-  if (hit.taxonLineage?.species) return hit.taxonLineage.species;
-  if (hit.sscinames) return String(hit.sscinames).split(";")[0].trim();
-  const guess = taxonLabel(hit);
-  return guess ? guess.label : null;
+/**
+ * The ordered list of resolved { rank, name, taxid } entries for a hit's
+ * taxon, root-to-leaf. Prefers the full lineage attached by
+ * ../src/analysis/taxonomy-db.js's enrichHitsWithLineage (built-in taxonomy
+ * database); falls back to a species-only entry with no taxid when only a
+ * flat name is available (manual names.dmp upload, or a stitle-parsed
+ * guess) — a valid, if minimal, Lineage TSV row per that format's spec.
+ * Empty array means no taxon could be resolved at all.
+ */
+function lineagePathFor(hit) {
+  if (hit.taxonLineage) {
+    const path = [];
+    for (const rank of LINEAGE_RANKS) {
+      const name = hit.taxonLineage[rank];
+      if (name) path.push({ rank, name, taxid: hit.taxonLineage[`${rank}_taxid`] });
+    }
+    if (path.length) return path;
+  }
+  let name = null;
+  if (hit.sscinames) name = String(hit.sscinames).split(";")[0].trim();
+  else {
+    const guess = taxonLabel(hit);
+    if (guess) name = guess.label;
+  }
+  return name ? [{ rank: "species", name, taxid: undefined }] : [];
 }
 
 /**
- * One row per taxon: { name, abundance }, abundance = number of queries
- * whose best hit passing `thresholds` resolved to that taxon (queries with
- * no passing hit are pooled under "Unclassified"). Sorted by abundance
- * descending. `data.queries` (not just the filtered hits) drives the query
- * list, so every query is accounted for exactly once, classified or not.
+ * One row per unique resolved taxon path: { count, <rank>, <rank>_taxid, ... }
+ * (only the ranks present in that path are set; the rest are left
+ * undefined, i.e. blank in the exported TSV). `count` = number of queries
+ * whose best passing hit resolved to that exact path. A single trailing
+ * row with only `count` set (every rank column blank) represents
+ * unclassified queries, present only when that count is nonzero. Sorted by
+ * count descending.
  */
 export function toEdnaSampleRows(data, thresholds) {
   const filtered = filterHits(data.hits, thresholds);
@@ -46,19 +67,36 @@ export function toEdnaSampleRows(data, thresholds) {
     if (!cur || (h.bitscore ?? -Infinity) > (cur.bitscore ?? -Infinity)) bestPerQuery.set(h.qseqid, h);
   }
 
-  const counts = new Map();
+  const byPath = new Map(); // pathKey -> { count, path }
+  let unclassifiedCount = 0;
   for (const q of data.queries) {
     const best = bestPerQuery.get(q.qseqid);
-    const name = (best && bestTaxonName(best)) || UNCLASSIFIED;
-    counts.set(name, (counts.get(name) || 0) + 1);
+    const path = best ? lineagePathFor(best) : [];
+    if (!path.length) {
+      unclassifiedCount++;
+      continue;
+    }
+    const key = path.map((p) => `${p.rank}:${p.name}`).join("|");
+    const entry = byPath.get(key);
+    if (entry) entry.count++;
+    else byPath.set(key, { count: 1, path });
   }
 
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, abundance]) => ({ name, abundance }));
+  const rows = [...byPath.values()].map(({ count, path }) => {
+    const row = { count };
+    for (const { rank, name, taxid } of path) {
+      row[rank] = name;
+      if (taxid !== undefined) row[`${rank}_taxid`] = taxid;
+    }
+    return row;
+  });
+  if (unclassifiedCount > 0) rows.push({ count: unclassifiedCount });
+
+  rows.sort((a, b) => b.count - a.count);
+  return rows;
 }
 
-/** toEdnaSampleRows(), rendered as tab-delimited text ready for download. */
+/** toEdnaSampleRows(), rendered as the Lineage TSV text described above, ready for download. */
 export function toEdnaSampleTsv(data, thresholds) {
-  return toDelimited(toEdnaSampleRows(data, thresholds), ["name", "abundance"], "\t");
+  return toDelimited(toEdnaSampleRows(data, thresholds), COLUMNS, "\t");
 }

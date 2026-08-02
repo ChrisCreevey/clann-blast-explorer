@@ -88,13 +88,18 @@ you confirm or correct.
   of a subset (passing filters, weak-hit, no-hit, or all); a combined
   query+hits FASTA ready for an alignment tool; a plain accession list for
   NCBI Batch Entrez when sequences aren't available locally; or an **eDNA
-  Explorer sample** — a flat name/abundance TSV treating this run as one
-  metabarcoding sample (each query = one read, assigned to its best passing
-  hit's taxon; unmatched queries pooled as "Unclassified"), matching [Clann
-  eDNA Explorer](https://chriscreevey.github.io/clann-edna-explorer/)'s
-  generic tab-delimited input format. Process each of several long-read
-  samples through BLAST/DIAMOND and this exporter, then load all the
-  resulting TSVs into eDNA Explorer together for multi-sample comparison.
+  Explorer sample** — a "Lineage TSV" treating this run as one metabarcoding
+  sample (each query = one read, assigned to its best passing hit's taxon;
+  unmatched queries pooled into a single unclassified row), one row per
+  resolved taxon path carrying a name *and taxid* at every rank (when the
+  built-in taxonomy database was used — a manual `names.dmp` upload or
+  `stitle`-parsed fallback only carries a species-level name, no taxid or
+  higher ranks). This gives [Clann eDNA Explorer](https://chriscreevey.github.io/clann-edna-explorer/)
+  a full taxonomic hierarchy for the sample, not just a flat name list, so
+  it gets rank-by-rank views, the sunburst/Sankey diagrams, and full
+  participation in multi-sample comparison there — process each of several
+  long-read samples through BLAST/DIAMOND and this exporter, then load all
+  the resulting TSVs into eDNA Explorer together.
 
 ## What it does not do
 
@@ -140,7 +145,8 @@ beyond the original brief:
 - [x] Rank-specific taxon filtering (Match rank: superkingdom/domain..species) on top of the
   existing include/exclude, using the built-in database's resolved lineage
 - [x] eDNA Explorer sample export (`export/edna-export.js`) — filtered, taxonomy-annotated
-  run as a flat name/abundance TSV for [Clann eDNA Explorer](https://chriscreevey.github.io/clann-edna-explorer/)
+  run as a "Lineage TSV" (name + taxid per rank, not just a flat name) for [Clann eDNA
+  Explorer](https://chriscreevey.github.io/clann-edna-explorer/)'s hierarchy-aware input
 
 ## Outstanding placeholders (see build brief §9)
 

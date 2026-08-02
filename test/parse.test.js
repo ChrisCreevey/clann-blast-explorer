@@ -21,7 +21,7 @@ import { toDelimited } from "../export/table-export.js";
 import {
   querySeqEntriesFromHits, subjectSeqEntriesFromHits, matchedFastaEntries, toFasta, accessionListText,
 } from "../export/fasta-export.js";
-import { toEdnaSampleRows, toEdnaSampleTsv, UNCLASSIFIED } from "../export/edna-export.js";
+import { toEdnaSampleRows, toEdnaSampleTsv } from "../export/edna-export.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(path.join(__dirname, "fixtures", name), "utf8");
@@ -460,12 +460,17 @@ test("resolveLineage: walks parent pointers to the canonical ranks, tolerates al
   assert.equal(batch.get(999), null);
 });
 
-test("toEdnaSampleRows: one row per taxon from each query's best passing hit, unmatched queries pooled as Unclassified", () => {
+test("toEdnaSampleRows: Lineage TSV rows — full lineage+taxid per path, sscinames-only fallback, unclassified pooling", () => {
+  const homoLineage = {
+    taxid: 9606, superkingdom: "Eukaryota", superkingdom_taxid: 2759,
+    kingdom: "Metazoa", kingdom_taxid: 33208, genus: "Homo", genus_taxid: 9605,
+    species: "Homo sapiens", species_taxid: 9606,
+  };
   const data = {
     hits: [
-      { qseqid: "q1", sseqid: "s1", bitscore: 500, taxonLineage: { species: "Homo sapiens" } },
+      { qseqid: "q1", sseqid: "s1", bitscore: 500, taxonLineage: homoLineage },
       { qseqid: "q1", sseqid: "s1b", bitscore: 300, taxonLineage: { species: "Should not win — lower bitscore" } },
-      { qseqid: "q2", sseqid: "s2", bitscore: 400, sscinames: "Mus musculus" }, // no taxonLineage — falls back to sscinames
+      { qseqid: "q2", sseqid: "s2", bitscore: 400, sscinames: "Mus musculus" }, // no taxonLineage — species-only fallback, no taxid
       { qseqid: "q3", sseqid: "s3", bitscore: 50 }, // fails minBitscore below
     ],
     queries: [{ qseqid: "q1" }, { qseqid: "q2" }, { qseqid: "q3" }, { qseqid: "q4" }], // q4 has no hits at all
@@ -473,16 +478,31 @@ test("toEdnaSampleRows: one row per taxon from each query's best passing hit, un
   const thresholds = { ...defaultThresholds(), minBitscore: 100 };
 
   const rows = toEdnaSampleRows(data, thresholds);
-  const byName = Object.fromEntries(rows.map((r) => [r.name, r.abundance]));
-  assert.equal(byName["Homo sapiens"], 1);
-  assert.equal(byName["Mus musculus"], 1);
-  assert.equal(byName[UNCLASSIFIED], 2); // q3 (filtered out) + q4 (no hits)
-  assert.equal(rows[0].name, UNCLASSIFIED); // highest abundance sorts first
-  assert.equal(rows.reduce((s, r) => s + r.abundance, 0), 4); // every query counted exactly once
+
+  const homoRow = rows.find((r) => r.species === "Homo sapiens");
+  assert.equal(homoRow.count, 1);
+  assert.equal(homoRow.superkingdom, "Eukaryota");
+  assert.equal(homoRow.superkingdom_taxid, 2759);
+  assert.equal(homoRow.genus, "Homo");
+  assert.equal(homoRow.species_taxid, 9606);
+
+  const musRow = rows.find((r) => r.species === "Mus musculus");
+  assert.equal(musRow.count, 1);
+  assert.equal(musRow.species_taxid, undefined); // no taxonLineage on that hit — no taxid available
+  assert.equal(musRow.genus, undefined); // and no other ranks either — species-only fallback
+
+  const unclassifiedRow = rows.find((r) => r.species === undefined && r.superkingdom === undefined);
+  assert.equal(unclassifiedRow.count, 2); // q3 (filtered out) + q4 (no hits)
+
+  assert.equal(rows[0].count, 2); // sorted by count descending — unclassified (2) sorts first
+  assert.equal(rows.reduce((s, r) => s + r.count, 0), 4); // every query counted exactly once
 
   const tsv = toEdnaSampleTsv(data, thresholds);
-  assert.equal(tsv.split("\n")[0], "name\tabundance");
-  assert.ok(tsv.includes("Homo sapiens\t1"));
+  const header = tsv.split("\n")[0].split("\t");
+  assert.deepEqual(header.slice(0, 3), ["count", "superkingdom", "superkingdom_taxid"]);
+  assert.ok(header.includes("species_taxid"));
+  assert.ok(tsv.includes("Eukaryota\t2759"));
+  assert.ok(tsv.includes("Homo\t9605\tHomo sapiens\t9606"));
 });
 
 test("parseTarEntries: walks fixed 512-byte tar headers to find files by name", () => {
