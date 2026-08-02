@@ -8,6 +8,12 @@ import { mountExplorer } from "./explorer.js";
 import { renderColumnMapping } from "./render/column-mapping.js";
 import { extractNamesDmpFromTarGz, parseNamesDmp } from "./parse/taxdump.js";
 import { decompressIfNeeded } from "./parse/compressed.js";
+import { loadTaxonomyDb, checkTaxonomyDbUpdate } from "./analysis/taxonomy-db.js";
+
+// Base URL for the built-in taxonomy database's GitHub Release assets
+// (taxonomy-db.bin + taxonomy-db.meta.json), built by tools/build-taxonomy-db.js.
+// TODO: update once a release with these assets is published.
+const TAXONOMY_DB_BASE_URL = "https://github.com/ChrisCreevey/clann-blast-explorer/releases/latest/download";
 
 const explorerEl = document.getElementById("explorer");
 const columnMappingEl = document.getElementById("columnMapping");
@@ -48,6 +54,9 @@ function loadData(data, name) {
   document.getElementById("taxdumpStatus").textContent = "No taxonomy mapping loaded.";
   document.getElementById("taxdumpControls").style.display = "none";
   document.getElementById("clearTaxdumpBtn").style.display = "none";
+  document.getElementById("builtinTaxonomyStatus").textContent = "Not loaded.";
+  document.getElementById("applyBuiltinTaxonomyBtn").style.display = "none";
+  document.getElementById("checkBuiltinTaxonomyUpdateBtn").style.display = "none";
 }
 
 function openText(text, name) {
@@ -194,6 +203,62 @@ taxdumpInput.addEventListener("change", async (e) => {
     taxdumpStatus.textContent = "No taxonomy mapping loaded.";
   } finally {
     loadTaxdumpBtn.disabled = false;
+  }
+});
+
+// --- taxonomy mapping: built-in prebuilt taxonomy database (fetched once, cached in IndexedDB) ---
+const loadBuiltinTaxonomyBtn = document.getElementById("loadBuiltinTaxonomyBtn");
+const builtinTaxonomyStatus = document.getElementById("builtinTaxonomyStatus");
+const applyBuiltinTaxonomyBtn = document.getElementById("applyBuiltinTaxonomyBtn");
+const checkBuiltinTaxonomyUpdateBtn = document.getElementById("checkBuiltinTaxonomyUpdateBtn");
+
+function formatMeta(meta) {
+  const built = meta.builtAt ? new Date(meta.builtAt).toLocaleDateString() : "unknown date";
+  const count = meta.taxidCount ? meta.taxidCount.toLocaleString() : "?";
+  return `${count} taxa, built ${built}`;
+}
+
+async function loadBuiltinTaxonomy(force) {
+  loadBuiltinTaxonomyBtn.disabled = true;
+  builtinTaxonomyStatus.textContent = "Downloading… this is a one-time download of several MB, cached afterwards.";
+  try {
+    const db = await loadTaxonomyDb(TAXONOMY_DB_BASE_URL, {
+      force,
+      onProgress: ({ received, total }) => {
+        builtinTaxonomyStatus.textContent = total
+          ? `Downloading… ${Math.round((received / total) * 100)}%`
+          : `Downloading… ${(received / 1e6).toFixed(1)} MB`;
+      },
+    });
+    builtinTaxonomyStatus.textContent = `Loaded (${formatMeta(db.meta)})${db.fromCache ? " — from local cache" : ""}.`;
+    applyBuiltinTaxonomyBtn.style.display = "";
+    checkBuiltinTaxonomyUpdateBtn.style.display = "";
+    if (handle) handle.setTaxonomyDb(db);
+  } catch (err) {
+    showError(`Couldn't load the built-in taxonomy database: ${err && err.message ? err.message : err}`);
+    builtinTaxonomyStatus.textContent = "Not loaded.";
+  } finally {
+    loadBuiltinTaxonomyBtn.disabled = false;
+  }
+}
+
+loadBuiltinTaxonomyBtn.addEventListener("click", () => loadBuiltinTaxonomy(false));
+
+checkBuiltinTaxonomyUpdateBtn.addEventListener("click", async () => {
+  checkBuiltinTaxonomyUpdateBtn.disabled = true;
+  try {
+    const { hasUpdate, remoteMeta } = await checkTaxonomyDbUpdate(TAXONOMY_DB_BASE_URL);
+    if (!hasUpdate) {
+      builtinTaxonomyStatus.textContent += " (up to date)";
+      return;
+    }
+    if (confirm(`A newer taxonomy database is available (${formatMeta(remoteMeta)}). Download it now?`)) {
+      await loadBuiltinTaxonomy(true);
+    }
+  } catch (err) {
+    showError(`Couldn't check for a taxonomy database update: ${err && err.message ? err.message : err}`);
+  } finally {
+    checkBuiltinTaxonomyUpdateBtn.disabled = false;
   }
 });
 

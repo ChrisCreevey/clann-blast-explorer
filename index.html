@@ -121,6 +121,12 @@
         <button class="act" id="loadTaxdumpBtn">Upload names.dmp or taxdump.tar.gz…</button>
         <div class="hint" id="taxdumpStatus">No taxonomy mapping loaded.</div>
 
+        <div class="hint" style="margin-top:10px">Or use the built-in taxonomy database — a prebuilt NCBI taxonomy lookup, downloaded once and cached in your browser, giving full lineage (kingdom through species) rather than just a name.</div>
+        <button class="act" id="loadBuiltinTaxonomyBtn">Load built-in taxonomy database</button>
+        <div class="hint" id="builtinTaxonomyStatus">Not loaded.</div>
+        <button class="act" id="applyBuiltinTaxonomyBtn" style="display:none">Fill missing names from built-in database</button>
+        <button class="act" id="checkBuiltinTaxonomyUpdateBtn" style="display:none">Check for updates…</button>
+
         <div id="taxdumpControls" style="display:none">
           <div class="row"><label for="taxidSourceMode">Taxon ID source</label></div>
           <select id="taxidSourceMode">

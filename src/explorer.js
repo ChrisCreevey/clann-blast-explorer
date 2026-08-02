@@ -9,6 +9,7 @@ import { defaultThresholds, filterHits, computeQcov } from "./analysis/filters.j
 import { computeRBH } from "./analysis/rbh.js";
 import { buildQueries } from "./parse/index.js";
 import { buildTaxonPreview, enrichHitsWithTaxonomy } from "./parse/taxdump.js";
+import { enrichHitsWithLineage } from "./analysis/taxonomy-db.js";
 import { renderHitTable } from "./render/hit-table.js";
 import { renderHitSpan } from "./render/hit-span.js";
 import { renderHistogram, renderScatter, renderCategoryBars } from "./render/charts.js";
@@ -82,6 +83,7 @@ export function mountExplorer(container, data) {
   let subjectFastaRecords = null;
   let taxonMap = null;
   let taxdumpFilename = null;
+  let taxonomyDb = null;
   const pristineHits = data.hits; // hits as originally parsed, before any taxonomy enrichment — for Clear
 
   container.innerHTML = "";
@@ -609,6 +611,7 @@ export function mountExplorer(container, data) {
   const taxdumpPreviewEl = document.getElementById("taxdumpPreview");
   const applyTaxdumpBtn = document.getElementById("applyTaxdumpBtn");
   const clearTaxdumpBtn = document.getElementById("clearTaxdumpBtn");
+  const applyBuiltinTaxonomyBtn = document.getElementById("applyBuiltinTaxonomyBtn");
 
   function currentTaxonPattern() {
     if (taxidPatternPreset.value === "dot") return { type: "delimiter", delimiter: "." };
@@ -652,6 +655,21 @@ export function mountExplorer(container, data) {
     renderAcrossQueries();
     if (currentQseqid) renderQuery(currentQseqid);
     taxdumpStatus.textContent = `Loaded ${taxdumpFilename} — filled ${filledCount} hit${filledCount === 1 ? "" : "s"} missing a name.`;
+    clearTaxdumpBtn.style.display = "";
+  };
+
+  applyBuiltinTaxonomyBtn.onclick = () => {
+    if (!taxonomyDb) return;
+    const { hits: newHits, filledCount } = enrichHitsWithLineage(data.hits, taxonomyDb);
+    data = {
+      meta: { ...data.meta, hasTaxonomy: newHits.some((h) => h.staxids || h.sscinames) },
+      hits: newHits,
+      queries: buildQueries(newHits),
+    };
+    updateTaxonFilterVisibility();
+    renderAcrossQueries();
+    if (currentQseqid) renderQuery(currentQseqid);
+    taxdumpStatus.textContent = `Built-in taxonomy database — filled ${filledCount} hit${filledCount === 1 ? "" : "s"} missing a name.`;
     clearTaxdumpBtn.style.display = "";
   };
 
@@ -707,6 +725,9 @@ export function mountExplorer(container, data) {
       taxidSourceMode.value = data.hits.some((h) => h.staxids) ? "staxids" : "pattern";
       taxidPatternRow.style.display = taxidSourceMode.value === "pattern" ? "" : "none";
       renderTaxdumpPreviewTable();
+    },
+    setTaxonomyDb(db) {
+      taxonomyDb = db;
     },
   };
 }
