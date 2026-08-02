@@ -6,13 +6,22 @@
 //   node tools/build-taxonomy-db.js [--out-dir data] [--url <taxdump.tar.gz URL>]
 //
 // Output:
-//   <out-dir>/taxonomy-db.bin        binary lookup tables (see format below)
+//   <out-dir>/taxonomy-db.bin.gz     gzipped binary lookup tables (see format below)
 //   <out-dir>/taxonomy-db.meta.json  version info consumed by the app loader
+//
+// The binary is gzipped before writing (~4x smaller: ~110MB -> ~28MB for the
+// full NCBI taxdump) for two reasons: it's a much smaller one-time download
+// for users, and — more importantly — GitHub rejects any single committed
+// file over 100MB outright, which the raw binary exceeds. The app loader
+// decompresses it client-side with DecompressionStream, the same approach
+// ../src/parse/compressed.js already uses for uploaded .gz files.
 //
 // Not run by the app itself and not part of the browser build — this is a
 // maintainer/contributor tool. Re-run it whenever the taxonomy database
-// needs refreshing, then upload the two output files as GitHub Release
-// assets (see clann-blast-explorer-BUILD-BRIEF.md for the delivery plan).
+// needs refreshing, then commit the two output files under data/ (served
+// same-origin by GitHub Pages — GitHub Release assets don't send CORS
+// headers, so fetch() from the app can't use them; see the note on
+// TAXONOMY_DB_BASE_URL in src/app.js).
 //
 // Binary format (little-endian). Typed arrays are ordered widest-element
 // first (4-byte, then 2-byte, then 1-byte) so every array starts on a
@@ -35,7 +44,7 @@
 //   nameBlob       nameBlobLen bytes       (UTF-8 scientific names, concatenated, no separators)
 
 import { writeFile, mkdir } from "node:fs/promises";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -194,11 +203,14 @@ async function main() {
   console.log("Building binary lookup tables ...");
   const { buffer, maxTaxid, taxidCount, namedCount } = buildBinary(nodes, names);
 
+  console.log("Gzipping ...");
+  const gzipped = gzipSync(buffer, { level: 9 });
+
   await mkdir(args.outDir, { recursive: true });
-  const binPath = path.join(args.outDir, "taxonomy-db.bin");
+  const binGzPath = path.join(args.outDir, "taxonomy-db.bin.gz");
   const metaPath = path.join(args.outDir, "taxonomy-db.meta.json");
 
-  await writeFile(binPath, buffer);
+  await writeFile(binGzPath, gzipped);
   const meta = {
     formatVersion: FORMAT_VERSION,
     sourceUrl: args.url,
@@ -207,12 +219,13 @@ async function main() {
     taxidCount,
     namedCount,
     byteLength: buffer.length,
+    gzipByteLength: gzipped.length,
   };
   await writeFile(metaPath, JSON.stringify(meta, null, 2));
 
-  console.log(`Wrote ${binPath} (${(buffer.length / 1e6).toFixed(1)} MB)`);
+  console.log(`Wrote ${binGzPath} (${(gzipped.length / 1e6).toFixed(1)} MB gzipped, ${(buffer.length / 1e6).toFixed(1)} MB uncompressed)`);
   console.log(`Wrote ${metaPath}`);
-  console.log("Upload both files as assets on a GitHub Release to publish this update.");
+  console.log("Commit both files (git add data/taxonomy-db.bin.gz data/taxonomy-db.meta.json) to publish this update.");
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

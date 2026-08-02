@@ -1,0 +1,10 @@
+{
+  "formatVersion": 1,
+  "sourceUrl": "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz",
+  "builtAt": "2026-08-02T15:50:02.039Z",
+  "maxTaxid": 3798512,
+  "taxidCount": 2917213,
+  "namedCount": 2917213,
+  "byteLength": 116093743,
+  "gzipByteLength": 28503292
+}

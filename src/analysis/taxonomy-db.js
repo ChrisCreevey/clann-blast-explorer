@@ -5,8 +5,11 @@
 // This is a separate, optional layer on top of ../parse/taxdump.js: that
 // module lets a user manually load their own taxdump.tar.gz to backfill
 // missing sscinames on hits (name-only, no lineage). This module instead
-// fetches a prebuilt binary lookup once (from a GitHub Release asset),
-// caches it in IndexedDB, and can walk the full parent chain to produce
+// fetches a prebuilt binary lookup once (from the same-origin data/
+// directory — see the note on TAXONOMY_DB_BASE_URL in app.js for why it's
+// not a GitHub Release asset: those don't send CORS headers, so cross-origin
+// fetch() is blocked by the browser regardless of app code), caches it in
+// IndexedDB, and can walk the full parent chain to produce
 // kingdom/phylum/class/order/family/genus/species — used for hierarchical
 // taxonomy views rather than a flat species label.
 //
@@ -216,6 +219,12 @@ async function fetchWithProgress(url, onProgress) {
   return buf.buffer;
 }
 
+/** The committed data/taxonomy-db.bin.gz is gzipped (~4x smaller); decompress after fetching. */
+async function gunzip(arrayBuffer) {
+  const stream = new Blob([arrayBuffer]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Response(stream).arrayBuffer();
+}
+
 /**
  * Fetch just the small meta.json from `baseUrl` to check whether a newer
  * taxonomy database is published, without downloading the full binary.
@@ -232,10 +241,12 @@ export async function checkTaxonomyDbUpdate(baseUrl) {
 
 /**
  * Load a ready-to-use taxonomy database: from IndexedDB cache when present
- * (no network call), otherwise downloads from `baseUrl` (a GitHub Release
- * asset base URL serving taxonomy-db.bin + taxonomy-db.meta.json) and caches
- * the result for next time. Pass `force: true` to re-download and overwrite
- * the cache even if one is already present.
+ * (no network call), otherwise downloads from `baseUrl` (a same-origin path
+ * serving taxonomy-db.bin.gz + taxonomy-db.meta.json — must be same-origin,
+ * since GitHub Release assets don't send CORS headers), decompresses it,
+ * and caches the decompressed result for next time (so later loads skip
+ * decompression too). Pass `force: true` to re-download and overwrite the
+ * cache even if one is already present.
  *
  * Returns { meta, fromCache, resolveLineage(taxid), resolveLineageBatch(taxids) }.
  */
@@ -257,7 +268,8 @@ export async function loadTaxonomyDb(baseUrl, { force = false, onProgress } = {}
   if (!metaRes.ok) throw new Error(`Failed to fetch meta.json: ${metaRes.status} ${metaRes.statusText}`);
   const meta = await metaRes.json();
 
-  const bytes = await fetchWithProgress(`${baseUrl}/taxonomy-db.bin`, onProgress);
+  const gzipped = await fetchWithProgress(`${baseUrl}/taxonomy-db.bin.gz`, onProgress);
+  const bytes = await gunzip(gzipped);
   await idbSet(CACHE_KEY, { meta, bytes });
 
   const db = decodeTaxonomyDb(bytes);

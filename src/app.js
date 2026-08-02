@@ -10,10 +10,17 @@ import { extractNamesDmpFromTarGz, parseNamesDmp } from "./parse/taxdump.js";
 import { decompressIfNeeded } from "./parse/compressed.js";
 import { loadTaxonomyDb, checkTaxonomyDbUpdate } from "./analysis/taxonomy-db.js";
 
-// Base URL for the built-in taxonomy database's GitHub Release assets
-// (taxonomy-db.bin + taxonomy-db.meta.json), built by tools/build-taxonomy-db.js.
-// TODO: update once a release with these assets is published.
-const TAXONOMY_DB_BASE_URL = "https://github.com/ChrisCreevey/clann-blast-explorer/releases/latest/download";
+// Base path for the built-in taxonomy database (taxonomy-db.bin +
+// taxonomy-db.meta.json), built by tools/build-taxonomy-db.js and committed
+// under data/. Relative (not "/data") so it resolves correctly whether
+// served from a domain root or a GitHub Pages project subpath.
+//
+// GitHub Release assets don't send CORS headers (confirmed against the live
+// site — no Access-Control-Allow-Origin anywhere in the redirect chain to
+// release-assets.githubusercontent.com), so fetch() from a different origin
+// is blocked by the browser regardless of the app's own code; hosting the
+// file same-origin avoids that entirely.
+const TAXONOMY_DB_BASE_URL = "data";
 
 const explorerEl = document.getElementById("explorer");
 const columnMappingEl = document.getElementById("columnMapping");
