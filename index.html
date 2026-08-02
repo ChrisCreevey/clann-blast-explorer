@@ -213,6 +213,10 @@
         <h4>Accession list</h4>
         <button class="act" id="exportAccessionBtn">Download accession list (.txt, current scope)</button>
         <div class="hint">Subject IDs only, one per line — for NCBI Batch Entrez or similar when sequences aren't available locally.</div>
+
+        <h4>eDNA Explorer sample</h4>
+        <button class="act" id="exportEdnaBtn">Download eDNA Explorer sample (TSV)</button>
+        <div class="hint" id="exportEdnaHint">One row per taxon, with a read count under the active filters — treats this run as one metabarcoding sample (each query = one read, assigned to its best passing hit's taxon; unmatched queries are pooled as "Unclassified"). Loads directly into <a href="https://chriscreevey.github.io/clann-edna-explorer/" target="_blank" rel="noopener">Clann eDNA Explorer</a>'s generic tab-delimited input — process each of several samples this way, then load them all together there for multi-sample comparison.</div>
       </details>
     </aside>
     <div id="sideResize" title="Drag to resize the panel · double-click to reset"></div>

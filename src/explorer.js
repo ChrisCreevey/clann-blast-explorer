@@ -17,6 +17,7 @@ import { renderTaxonomyChart, taxonLabel } from "./render/taxonomy.js";
 import { accessionLinkUrl } from "./parse/accession.js";
 import { toDelimited, downloadText } from "../export/table-export.js";
 import { querySeqEntriesFromHits, subjectSeqEntriesFromHits, matchedFastaEntries, toFasta, accessionListText } from "../export/fasta-export.js";
+import { toEdnaSampleTsv } from "../export/edna-export.js";
 
 const EXPORT_COLS = [
   "qseqid", "sseqid", "pident", "length", "mismatch", "gapopen", "qstart", "qend", "sstart", "send",
@@ -605,6 +606,13 @@ export function mountExplorer(container, data) {
     const ids = [...new Set(scopeHits().map((h) => h.sseqid))];
     if (!ids.length) return showNote("No hits in the current scope.");
     downloadText("accessions.txt", accessionListText(ids), "text/plain");
+  };
+
+  document.getElementById("exportEdnaBtn").onclick = () => {
+    // Whole-sample export: ignores the "Scope" dropdown (current-query vs.
+    // all) since a per-taxon abundance table is inherently a whole-file thing.
+    const base = (data.meta.sourceFilename || "sample").replace(/\.[^./]+$/, "");
+    downloadText(`${base}-edna-sample.tsv`, toEdnaSampleTsv(data, thresholds), "text/tab-separated-values");
   };
 
   // --- taxonomy mapping (NCBI names.dmp) ---

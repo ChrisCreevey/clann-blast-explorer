@@ -86,8 +86,15 @@ you confirm or correct.
   then: TSV/CSV of the hit table; FASTA directly from `qseq`/`sseq` columns
   when present; upload the original query/subject FASTA for ID-matched export
   of a subset (passing filters, weak-hit, no-hit, or all); a combined
-  query+hits FASTA ready for an alignment tool; or a plain accession list for
-  NCBI Batch Entrez when sequences aren't available locally.
+  query+hits FASTA ready for an alignment tool; a plain accession list for
+  NCBI Batch Entrez when sequences aren't available locally; or an **eDNA
+  Explorer sample** — a flat name/abundance TSV treating this run as one
+  metabarcoding sample (each query = one read, assigned to its best passing
+  hit's taxon; unmatched queries pooled as "Unclassified"), matching [Clann
+  eDNA Explorer](https://chriscreevey.github.io/clann-edna-explorer/)'s
+  generic tab-delimited input format. Process each of several long-read
+  samples through BLAST/DIAMOND and this exporter, then load all the
+  resulting TSVs into eDNA Explorer together for multi-sample comparison.
 
 ## What it does not do
 
@@ -132,6 +139,8 @@ beyond the original brief:
   cached client-side, resolving full lineage rather than just a name (`tools/build-taxonomy-db.js`)
 - [x] Rank-specific taxon filtering (Match rank: superkingdom/domain..species) on top of the
   existing include/exclude, using the built-in database's resolved lineage
+- [x] eDNA Explorer sample export (`export/edna-export.js`) — filtered, taxonomy-annotated
+  run as a flat name/abundance TSV for [Clann eDNA Explorer](https://chriscreevey.github.io/clann-edna-explorer/)
 
 ## Outstanding placeholders (see build brief §9)
 
