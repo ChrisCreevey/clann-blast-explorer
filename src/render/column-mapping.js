@@ -12,7 +12,8 @@ const FIELD_LABELS = {
   evalue: "evalue", bitscore: "bitscore",
   qlen: "qlen — query length", slen: "slen — subject length",
   staxids: "staxids — taxon IDs", sscinames: "sscinames — scientific names",
-  scomnames: "scomnames — common names", sskingdoms: "sskingdoms — kingdoms",
+  scomnames: "scomnames — common names", sskingdoms: "sskingdoms — superkingdoms",
+  sblastnames: "sblastnames — BLAST names (informal group, e.g. \"rodents\")",
   qcovs: "qcovs — query coverage %", qcovhsp: "qcovhsp — query coverage % (per HSP)",
   stitle: "stitle — subject title", qseq: "qseq — query sequence", sseq: "sseq — subject sequence",
 };

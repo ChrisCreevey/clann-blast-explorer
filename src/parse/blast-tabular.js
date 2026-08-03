@@ -8,7 +8,7 @@ export const STANDARD_12 = [
 /** Every field name the parser understands, for building a manual column-mapping UI. */
 export const KNOWN_FIELDS = [
   "qseqid", "sseqid", "pident", "length", "mismatch", "gapopen", "qstart", "qend", "sstart", "send",
-  "evalue", "bitscore", "qlen", "slen", "staxids", "sscinames", "scomnames", "sskingdoms",
+  "evalue", "bitscore", "qlen", "slen", "staxids", "sscinames", "scomnames", "sskingdoms", "sblastnames",
   "qcovs", "qcovhsp", "stitle", "qseq", "sseq",
 ];
 
@@ -54,7 +54,7 @@ const FIELD_LABEL_MAP = {
   "evalue": "evalue", "bit score": "bitscore",
   "query length": "qlen", "subject length": "slen",
   "subject tax ids": "staxids", "subject sci names": "sscinames",
-  "subject com names": "scomnames", "subject blast names": "sskingdoms", "subject super kingdoms": "sskingdoms",
+  "subject com names": "scomnames", "subject blast names": "sblastnames", "subject super kingdoms": "sskingdoms",
   "% query coverage per subject": "qcovs", "% query coverage per hsp": "qcovhsp",
   "subject title": "stitle", "subject strand": "sstrand",
   "query seq": "qseq", "subject seq": "sseq",
@@ -91,7 +91,8 @@ const HEADER_NAME_MAP = {
   staxids: "staxids", subjecttaxids: "staxids", taxid: "staxids", taxids: "staxids",
   sscinames: "sscinames", subjectscinames: "sscinames", scientificname: "sscinames",
   scomnames: "scomnames", subjectcomnames: "scomnames",
-  sskingdoms: "sskingdoms", subjectkingdoms: "sskingdoms",
+  sskingdoms: "sskingdoms", subjectkingdoms: "sskingdoms", subjectsuperkingdoms: "sskingdoms",
+  sblastnames: "sblastnames", subjectblastnames: "sblastnames", blastname: "sblastnames", blastnames: "sblastnames",
   qcovs: "qcovs", qcovhsp: "qcovhsp",
   stitle: "stitle", subjecttitle: "stitle", title: "stitle",
   qseq: "qseq", queryseq: "qseq",

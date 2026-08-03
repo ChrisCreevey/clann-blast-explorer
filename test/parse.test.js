@@ -7,7 +7,7 @@ import path from "node:path";
 import { parse, ColumnMappingNeeded } from "../src/parse/index.js";
 import { parseFasta, matchFastaIds, toFastaText } from "../src/parse/fasta.js";
 import { classifyAccession, accessionLinkUrl } from "../src/parse/accession.js";
-import { guessColumns, STANDARD_12 } from "../src/parse/blast-tabular.js";
+import { guessColumns, STANDARD_12, parseFieldsLine } from "../src/parse/blast-tabular.js";
 import { defaultThresholds, passesThresholds, filterHits, computeQcov, classifyQuery } from "../src/analysis/filters.js";
 import { perQuerySummary, bestHits } from "../src/analysis/summary.js";
 import { taxonLabel } from "../src/render/taxonomy.js";
@@ -41,6 +41,11 @@ test("standard -outfmt 6 (headerless, 12 columns): always needs manual mapping, 
   assert.equal(q1.best.sseqid, "sbjct_A"); // higher bitscore
   assert.equal(typeof data.hits[0].pident, "number");
   assert.equal(typeof data.hits[0].evalue, "number");
+});
+
+test("parseFieldsLine: 'subject blast names' and 'subject super kingdoms' map to distinct fields", () => {
+  const cols = parseFieldsLine("# Fields: query acc.ver, subject acc.ver, subject blast names, subject super kingdoms");
+  assert.deepEqual(cols, ["qseqid", "sseqid", "sblastnames", "sskingdoms"]);
 });
 
 test("-outfmt 7 with '# Fields:' line and taxonomy columns", () => {
@@ -162,11 +167,12 @@ test("passesThresholds: numeric and self-hit/taxon filters", () => {
   assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonExclude: "homo" }), false);
 });
 
-test("passesThresholds: 'any' taxon matching also searches sskingdoms, not just sscinames/scomnames/staxids", () => {
-  const hit = { qseqid: "q1", sseqid: "s1", sscinames: "Homo sapiens", sskingdoms: "Eukaryota" };
+test("passesThresholds: 'any' taxon matching also searches sskingdoms and sblastnames, not just sscinames/scomnames/staxids", () => {
+  const hit = { qseqid: "q1", sseqid: "s1", sscinames: "Homo sapiens", sskingdoms: "Eukaryota", sblastnames: "primates" };
   assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonInclude: "eukaryota" }), true);
   assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonExclude: "eukaryota" }), false);
   assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonInclude: "bacteria" }), false);
+  assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonInclude: "primates" }), true); // sblastnames — distinct from sskingdoms (true superkingdom)
 });
 
 test("passesThresholds: rank-specific taxon matching uses taxonLineage, not sscinames/staxids text", () => {
@@ -530,6 +536,21 @@ test("toEdnaSampleRows: falls back to the file's own sskingdoms column as superk
 
   const kingdomOnlyRow = rows.find((r) => r.superkingdom === "Bacteria" && r.species === undefined);
   assert.equal(kingdomOnlyRow.count, 1); // a superkingdom-only row is a valid gapped Lineage TSV row, not unclassified
+});
+
+test("toEdnaSampleRows: sblastnames (BLAST's informal group name) never ends up as a lineage rank — no canonical rank for it", () => {
+  const data = {
+    hits: [{ qseqid: "q1", sseqid: "s1", bitscore: 500, sblastnames: "rodents" }], // no sscinames/sskingdoms/taxonLineage at all
+    queries: [{ qseqid: "q1" }],
+  };
+  const rows = toEdnaSampleRows(data, defaultThresholds());
+  // Nothing in the row should ever be "rodents" — sblastnames has no home in LINEAGE_RANKS,
+  // so a hit with only sblastnames resolves to no taxon at all (an unclassified row).
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].count, 1);
+  for (const rank of ["superkingdom", "kingdom", "phylum", "class", "order", "family", "genus", "species"]) {
+    assert.equal(rows[0][rank], undefined);
+  }
 });
 
 test("parseTarEntries: walks fixed 512-byte tar headers to find files by name", () => {

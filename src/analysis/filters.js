@@ -40,6 +40,7 @@ function taxonNamesOf(hit, rank) {
   if (hit.sscinames) names.push(hit.sscinames);
   if (hit.scomnames) names.push(hit.scomnames);
   if (hit.sskingdoms) names.push(hit.sskingdoms);
+  if (hit.sblastnames) names.push(hit.sblastnames);
   if (hit.staxids) names.push(...(Array.isArray(hit.staxids) ? hit.staxids : [hit.staxids]));
   return names.join(" ").toLowerCase();
 }

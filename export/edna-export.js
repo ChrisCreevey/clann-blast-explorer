@@ -28,10 +28,16 @@ const COLUMNS = ["count", ...LINEAGE_RANKS.flatMap((r) => [r, `${r}_taxid`])];
  * taxon, root-to-leaf. Prefers the full lineage attached by
  * ../src/analysis/taxonomy-db.js's enrichHitsWithLineage (built-in taxonomy
  * database); falls back to whatever flat taxonomy the hit itself carries —
- * an `sskingdoms` column as superkingdom and `sscinames` (or a stitle-parsed
+ * an `sskingdoms` column (NCBI's true superkingdom: Bacteria/Archaea/
+ * Eukaryota/Viruses) as superkingdom, and `sscinames` (or a stitle-parsed
  * guess) as species, each with no taxid — a valid, if gapped/minimal, pair
  * of Lineage TSV rank columns per that format's spec (a row need not fill
- * every rank). Empty array means no taxon could be resolved at all.
+ * every rank). Deliberately does *not* use `sblastnames` here: BLAST's
+ * "BLAST name" is an informal, curated grouping (e.g. "rodents",
+ * "eudicots") that sits at no consistent Linnaean rank, so there's no
+ * canonical LINEAGE_RANKS slot to put it in — it still feeds the "any"-mode
+ * taxon filter (see ../src/analysis/filters.js), just not this export.
+ * Empty array means no taxon could be resolved at all.
  */
 function lineagePathFor(hit) {
   if (hit.taxonLineage) {
