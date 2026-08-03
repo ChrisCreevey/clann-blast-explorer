@@ -27,10 +27,11 @@ const COLUMNS = ["count", ...LINEAGE_RANKS.flatMap((r) => [r, `${r}_taxid`])];
  * The ordered list of resolved { rank, name, taxid } entries for a hit's
  * taxon, root-to-leaf. Prefers the full lineage attached by
  * ../src/analysis/taxonomy-db.js's enrichHitsWithLineage (built-in taxonomy
- * database); falls back to a species-only entry with no taxid when only a
- * flat name is available (manual names.dmp upload, or a stitle-parsed
- * guess) — a valid, if minimal, Lineage TSV row per that format's spec.
- * Empty array means no taxon could be resolved at all.
+ * database); falls back to whatever flat taxonomy the hit itself carries —
+ * an `sskingdoms` column as superkingdom and `sscinames` (or a stitle-parsed
+ * guess) as species, each with no taxid — a valid, if gapped/minimal, pair
+ * of Lineage TSV rank columns per that format's spec (a row need not fill
+ * every rank). Empty array means no taxon could be resolved at all.
  */
 function lineagePathFor(hit) {
   if (hit.taxonLineage) {
@@ -41,13 +42,19 @@ function lineagePathFor(hit) {
     }
     if (path.length) return path;
   }
-  let name = null;
-  if (hit.sscinames) name = String(hit.sscinames).split(";")[0].trim();
+
+  const path = [];
+  if (hit.sskingdoms) {
+    path.push({ rank: "superkingdom", name: String(hit.sskingdoms).split(";")[0].trim(), taxid: undefined });
+  }
+  let speciesName = null;
+  if (hit.sscinames) speciesName = String(hit.sscinames).split(";")[0].trim();
   else {
     const guess = taxonLabel(hit);
-    if (guess) name = guess.label;
+    if (guess) speciesName = guess.label;
   }
-  return name ? [{ rank: "species", name, taxid: undefined }] : [];
+  if (speciesName) path.push({ rank: "species", name: speciesName, taxid: undefined });
+  return path;
 }
 
 /**

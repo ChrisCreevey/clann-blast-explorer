@@ -162,6 +162,13 @@ test("passesThresholds: numeric and self-hit/taxon filters", () => {
   assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonExclude: "homo" }), false);
 });
 
+test("passesThresholds: 'any' taxon matching also searches sskingdoms, not just sscinames/scomnames/staxids", () => {
+  const hit = { qseqid: "q1", sseqid: "s1", sscinames: "Homo sapiens", sskingdoms: "Eukaryota" };
+  assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonInclude: "eukaryota" }), true);
+  assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonExclude: "eukaryota" }), false);
+  assert.equal(passesThresholds(hit, { ...defaultThresholds(), taxonInclude: "bacteria" }), false);
+});
+
 test("passesThresholds: rank-specific taxon matching uses taxonLineage, not sscinames/staxids text", () => {
   const withLineage = {
     qseqid: "q1", sseqid: "s1", sscinames: "Homo sapiens",
@@ -503,6 +510,26 @@ test("toEdnaSampleRows: Lineage TSV rows — full lineage+taxid per path, sscina
   assert.ok(header.includes("species_taxid"));
   assert.ok(tsv.includes("Eukaryota\t2759"));
   assert.ok(tsv.includes("Homo\t9605\tHomo sapiens\t9606"));
+});
+
+test("toEdnaSampleRows: falls back to the file's own sskingdoms column as superkingdom when no taxonLineage is attached", () => {
+  const data = {
+    hits: [
+      // Taxonomy came straight from the BLAST file's own columns (e.g. NCBI web BLAST export) —
+      // no built-in taxonomy database was ever applied, so there's no taxonLineage.
+      { qseqid: "q1", sseqid: "s1", bitscore: 500, sscinames: "Homo sapiens", sskingdoms: "Eukaryota" },
+      { qseqid: "q2", sseqid: "s2", bitscore: 400, sskingdoms: "Bacteria" }, // kingdom only, no species name at all
+    ],
+    queries: [{ qseqid: "q1" }, { qseqid: "q2" }],
+  };
+  const rows = toEdnaSampleRows(data, defaultThresholds());
+
+  const homoRow = rows.find((r) => r.species === "Homo sapiens");
+  assert.equal(homoRow.superkingdom, "Eukaryota");
+  assert.equal(homoRow.superkingdom_taxid, undefined); // sskingdoms carries no taxid, unlike a resolved taxonLineage
+
+  const kingdomOnlyRow = rows.find((r) => r.superkingdom === "Bacteria" && r.species === undefined);
+  assert.equal(kingdomOnlyRow.count, 1); // a superkingdom-only row is a valid gapped Lineage TSV row, not unclassified
 });
 
 test("parseTarEntries: walks fixed 512-byte tar headers to find files by name", () => {
