@@ -1,5 +1,7 @@
 # Clann BLAST Explorer
 
+# Use it online here **[chriscreevey.github.io/clann-blast-explorer](https://chriscreevey.github.io/clann-blast-explorer/)**.
+
 A free, browser-only tool for exploring BLAST tabular output (`-outfmt 6`/`7`) and
 DIAMOND tabular output. Companion to [Clann Tree Viewer](https://github.com/ChrisCreevey/clann-tree-viewer).
 
@@ -11,7 +13,7 @@ alignment and phylogenetic analyses.
 
 **Nothing is uploaded.** Everything runs client-side, in your browser.
 
-Live at **[chriscreevey.github.io/clann-blast-explorer](https://chriscreevey.github.io/clann-blast-explorer/)**.
+
 
 ## Loading data
 
