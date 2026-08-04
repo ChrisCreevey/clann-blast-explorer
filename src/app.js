@@ -319,6 +319,17 @@ document.getElementById("themeBtn").addEventListener("click", () => {
   r.dataset.theme = r.dataset.theme === "dark" ? "light" : "dark";
 });
 
+// --- confirm before leaving once a run is loaded ---
+// Nothing is persisted anywhere (everything runs client-side, by design),
+// so a reload or back-navigation silently wipes the loaded run, any
+// reverse/RBH run, and uploaded FASTA files. Only warn once there's
+// actually something to lose.
+window.addEventListener("beforeunload", (e) => {
+  if (!handle) return;
+  e.preventDefault();
+  e.returnValue = "";
+});
+
 // --- drag & drop over the canvas ---
 let dragDepth = 0;
 const hasFiles = (e) => e.dataTransfer && [...e.dataTransfer.types].includes("Files");
